@@ -50,6 +50,14 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            // The classes under test call android.util.Log. Without this every
+            // Log line throws "not mocked" and the test fails for no reason.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -58,4 +66,9 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.okhttp)
+
+    testImplementation(libs.junit)
+    // android.jar's org.json is a stub that throws. This is the real thing, so
+    // the DSL and planner parsers can be tested as they actually behave.
+    testImplementation(libs.json)
 }

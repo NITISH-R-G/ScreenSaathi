@@ -1,0 +1,75 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A committed local.properties would mean a leaked Sarvam key. Fail loudly
+      # and before anything else rather than let it sit in history unnoticed.
+      - name: Guard against a committed key
+        run: |
+          if git ls-files --error-unmatch local.properties >/dev/null 2>&1; then
+            echo "::error::local.properties is tracked - it holds the Sarvam API key. Remove it and rotate the key."
+            exit 1
+          fi
+          if git grep -nE 'sk_[a-z0-9]{6,}_[A-Za-z0-9]{10,}' -- . ':!.github/workflows/android.yml'; then
+            echo "::error::A Sarvam-shaped API key is committed in the tree. Rotate it."
+            exit 1
+          fi
+          echo "No key material tracked."
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: android-actions/setup-android@v3
+
+      # compileSdk is 36.1 (a minor-version platform) and buildToolsVersion is
+      # pinned to 36.1.0, so install those exact packages rather than trusting
+      # whatever the runner image happens to ship.
+      - name: Install SDK packages
+        run: sdkmanager --install "platforms;android-36.1" "build-tools;36.1.0"
+
+      # No key on CI. That is deliberate: the build must stay green without one,
+      # because the deterministic fallback path is the offline demo path.
+      - name: Assemble debug
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Lint
+        run: ./gradlew lintDebug --stacktrace
+        continue-on-error: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: screensaathi-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
