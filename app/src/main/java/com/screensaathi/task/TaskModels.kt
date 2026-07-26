@@ -13,6 +13,15 @@ data class Highlight(
     val pulse: Boolean = true,
 )
 
+/**
+ * What a step asks of the user.
+ *
+ * GUIDE is the M1 behaviour: point at an element and say what to do. CHOOSE_APP
+ * exists because the taxi flow has to ask *which* ride app before it can guide
+ * inside one, and that question has no on-screen element to point at.
+ */
+enum class StepKind { GUIDE, CHOOSE_APP }
+
 data class TaskStep(
     val id: String,
     val resourceId: String,
@@ -22,6 +31,24 @@ data class TaskStep(
     val instructions: Map<String, String> = emptyMap(),
     val expectsValue: Boolean = false,
     val highlight: Highlight = Highlight(),
+    val kind: StepKind = StepKind.GUIDE,
+    /**
+     * Visible text to match on when [resourceId] cannot be used.
+     *
+     * Our own demo screen has stable ids; Uber, Ola and Rapido do not — their
+     * view ids are obfuscated and change between releases. Matching the label
+     * the user can actually see ("Where to?") is the only thing that survives,
+     * so a third-party step targets text and leaves resourceId empty.
+     */
+    val textAny: List<String> = emptyList(),
+    /**
+     * Package this step expects to be looking at. Guidance waits for it, so the
+     * ring never lands on our own launcher screen while the ride app is still
+     * starting up.
+     */
+    val expectPackage: String = "",
+    val actionType: String = "guide",
+    val actionPayload: String = "",
 ) {
     /**
      * The step's wording in [language] if the DSL carries it, otherwise the

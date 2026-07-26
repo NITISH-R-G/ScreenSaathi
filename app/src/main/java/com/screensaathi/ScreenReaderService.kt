@@ -104,6 +104,51 @@ class ScreenReaderService : AccessibilityService() {
         }
     }
 
+    /**
+     * Finds a node by resource id or text and performs a click action.
+     */
+    fun performClick(resourceId: String, textAny: List<String>): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val node = findNode(root, resourceId, textAny, true) ?: return false
+        val success = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        node.recycle()
+        return success
+    }
+
+    fun performSetText(resourceId: String, textAny: List<String>, textToType: String): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val node = findNode(root, resourceId, textAny, false) ?: return false
+        val args = android.os.Bundle()
+        args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, textToType)
+        val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        node.recycle()
+        return success
+    }
+
+    private fun findNode(node: AccessibilityNodeInfo?, resourceId: String, textAny: List<String>, requiresClickable: Boolean): AccessibilityNodeInfo? {
+        if (node == null) return null
+        
+        val rid = node.viewIdResourceName?.substringAfterLast('/') ?: ""
+        if (rid in OVERLAY_IDS) return null
+        
+        val validAction = if (requiresClickable) node.isClickable else (node.isClickable || node.isEditable)
+        if (resourceId.isNotEmpty() && rid == resourceId && validAction) {
+            return AccessibilityNodeInfo.obtain(node)
+        }
+        
+        val text = (node.text ?: node.contentDescription)?.toString() ?: ""
+        if (textAny.isNotEmpty() && textAny.any { it.equals(text, ignoreCase = true) } && validAction) {
+            return AccessibilityNodeInfo.obtain(node)
+        }
+
+        // Search children
+        for (i in 0 until node.childCount) {
+            val found = findNode(node.getChild(i), resourceId, textAny, requiresClickable)
+            if (found != null) return found
+        }
+        return null
+    }
+
     companion object {
         private const val MAX_ELEMENTS = 120
         private const val MIN_PX = 4

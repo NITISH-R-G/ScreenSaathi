@@ -28,11 +28,18 @@ class PhrasesTest {
     }
 
     @Test
-    fun `an unauthored language falls back to English text labelled English`() {
-        // Tamil is speakable by Bulbul but we have not authored our own words in
-        // it. The degraded answer must be honest English, never English text
-        // tagged ta-IN.
+    fun `Tamil is answered in Tamil`() {
         val p = Phrases.get(Phrases.Key.LISTENING, "ta-IN")
+        assertEquals("ta-IN", p.language)
+        assertTrue("expected Tamil script", p.text.any { it.code in 0x0B80..0x0BFF })
+    }
+
+    @Test
+    fun `an unauthored language falls back to English text labelled English`() {
+        // Bengali is speakable by Bulbul but we have not authored our own words
+        // in it. The degraded answer must be honest English, never English text
+        // tagged bn-IN — that combination is a 400 and the app goes mute.
+        val p = Phrases.get(Phrases.Key.LISTENING, "bn-IN")
         assertEquals(Language.DEFAULT, p.language)
         assertEquals(Phrases.get(Phrases.Key.LISTENING, "en-IN").text, p.text)
     }
@@ -56,13 +63,17 @@ class PhrasesTest {
     }
 
     @Test
-    fun `the Hindi wording is actually translated, not copied English`() {
-        for (key in Phrases.Key.values()) {
-            assertNotEquals(
-                "$key was never translated to Hindi",
-                Phrases.get(key, "en-IN").text,
-                Phrases.get(key, "hi-IN").text,
-            )
+    fun `the translations are actually translated, not copied English`() {
+        for (language in Phrases.AUTHORED - "en-IN") {
+            for (key in Phrases.Key.values()) {
+                // OPENING_APP is a format string whose only word is the app
+                // name, so an identical match there would be a real bug too.
+                assertNotEquals(
+                    "$key was never translated to $language",
+                    Phrases.get(key, "en-IN").text,
+                    Phrases.get(key, language).text,
+                )
+            }
         }
     }
 

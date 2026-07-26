@@ -8,6 +8,21 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
+    <!-- Package visibility (Android 11+): without these, getLaunchIntentForPackage
+         returns null for every one of them and the app reports that no taxi app
+         is installed on a phone that plainly has three. Named explicitly rather
+         than QUERY_ALL_PACKAGES — we only ever offer this list. Keep in sync
+         with RideApps.KNOWN. -->
+    <queries>
+        <package android:name="com.ubercab" />
+        <package android:name="com.olacabs.customer" />
+        <package android:name="com.rapido.passenger" />
+        <package android:name="in.indrive.client" />
+        <package android:name="com.blusmart.rider" />
+        <package android:name="app.nammayatri.passenger" />
+        <package android:name="com.meru.mgt" />
+    </queries>
+
     <application
         android:name=".SaathiApp"
         android:allowBackup="false"

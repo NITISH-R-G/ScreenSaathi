@@ -50,6 +50,8 @@ class OverlayService : Service() {
     private lateinit var stateDot: View
     private lateinit var languageChip: TextView
     private lateinit var debugPanel: TextView
+    private lateinit var choiceRow: LinearLayout
+    private lateinit var choiceButtons: List<TextView>
 
     private var expanded = false
     private var debugVisible = false
@@ -67,7 +69,24 @@ class OverlayService : Service() {
         render(OverlayCommand(PillState.IDLE, expanded = false))
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Rehearsal entry point: run a task without speaking. Same engine,
+        // overlay and cursor as a spoken request — only STT is skipped.
+        when (intent?.action) {
+            ACTION_RUN_TASK -> {
+                val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return START_STICKY
+                val language = intent.getStringExtra(EXTRA_LANGUAGE) ?: "en-IN"
+                main.post { controller.startTaskById(taskId, language) }
+            }
+            // Pick an option without touching the screen. Same code path as the
+            // button, so a rehearsal exercises the real thing.
+            ACTION_CHOOSE -> {
+                val index = intent.getIntExtra(EXTRA_CHOICE, -1)
+                if (index >= 0) main.post { controller.onChoiceTapped(index) }
+            }
+        }
+        return START_STICKY
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -97,6 +116,12 @@ class OverlayService : Service() {
         stateDot = pillRoot.findViewById(R.id.state_dot)
         languageChip = pillRoot.findViewById(R.id.language_chip)
         debugPanel = pillRoot.findViewById(R.id.debug_panel)
+        choiceRow = pillRoot.findViewById(R.id.choice_row)
+        choiceButtons = listOf(R.id.choice_0, R.id.choice_1, R.id.choice_2)
+            .map { pillRoot.findViewById<TextView>(it) }
+        choiceButtons.forEachIndexed { i, b ->
+            b.setOnClickListener { controller.onChoiceTapped(i) }
+        }
 
         pillRoot.findViewById<View>(R.id.pill_row).setOnClickListener { toggleExpanded() }
         pillRoot.findViewById<View>(R.id.pill_row).setOnLongClickListener {
@@ -107,6 +132,7 @@ class OverlayService : Service() {
         pillRoot.findViewById<View>(R.id.mic_button).setOnClickListener { controller.onMicTapped() }
         pillRoot.findViewById<View>(R.id.next_button).setOnClickListener { controller.onNextTapped() }
         pillRoot.findViewById<View>(R.id.stop_button).setOnClickListener { controller.onStopTapped() }
+        pillRoot.findViewById<View>(R.id.close_button).setOnClickListener { stopSelf() }
 
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -152,6 +178,7 @@ class OverlayService : Service() {
         languageChip.text = Language.nativeName(cmd.language)
 
         cmd.instruction?.let { instructionText.text = it }
+        renderChoices(cmd.choices)
 
         if (cmd.expanded != expanded) setExpanded(cmd.expanded)
 
@@ -164,6 +191,20 @@ class OverlayService : Service() {
             highlightView.clear()
         } else {
             highlightView.show(h.left, h.top, h.right, h.bottom, h.shape, h.pulse)
+        }
+    }
+
+    /**
+     * One button per option, up to the three the row holds. More installed ride
+     * apps than that is not a case worth a scrolling list on a demo overlay —
+     * the first three in a curated order are the ones anyone will pick.
+     */
+    private fun renderChoices(choices: List<String>) {
+        choiceRow.visibility = if (choices.isEmpty()) View.GONE else View.VISIBLE
+        choiceButtons.forEachIndexed { i, button ->
+            val label = choices.getOrNull(i)
+            button.visibility = if (label == null) View.GONE else View.VISIBLE
+            if (label != null) button.text = label
         }
     }
 
@@ -236,8 +277,31 @@ class OverlayService : Service() {
     companion object {
         private const val NOTIF_ID = 42
 
+        const val ACTION_RUN_TASK = "com.screensaathi.RUN_TASK"
+        const val ACTION_CHOOSE = "com.screensaathi.CHOOSE"
+        const val EXTRA_TASK_ID = "task_id"
+        const val EXTRA_LANGUAGE = "language"
+        const val EXTRA_CHOICE = "choice"
+
         fun start(context: Context) {
             val i = Intent(context, OverlayService::class.java)
+            ContextCompat.startForegroundService(context, i)
+        }
+
+        /** Pick option [index] from the card, as if the button were tapped. */
+        fun choose(context: Context, index: Int) {
+            val i = Intent(context, OverlayService::class.java)
+                .setAction(ACTION_CHOOSE)
+                .putExtra(EXTRA_CHOICE, index)
+            ContextCompat.startForegroundService(context, i)
+        }
+
+        /** Start the overlay if needed, then run [taskId] without speech. */
+        fun runTask(context: Context, taskId: String, language: String) {
+            val i = Intent(context, OverlayService::class.java)
+                .setAction(ACTION_RUN_TASK)
+                .putExtra(EXTRA_TASK_ID, taskId)
+                .putExtra(EXTRA_LANGUAGE, language)
             ContextCompat.startForegroundService(context, i)
         }
     }

@@ -30,6 +30,11 @@ object Phrases {
         RESUMED,
         NO_TASKS,
         TAP_MIC,
+        CHOOSE_APP,
+        /** Takes the app's name, e.g. "Opening Uber…". */
+        OPENING_APP,
+        APP_WONT_OPEN,
+        NO_RIDE_APPS,
     }
 
     private val EN = mapOf(
@@ -43,6 +48,10 @@ object Phrases {
         Key.RESUMED to "Let's carry on from where we left off.",
         Key.NO_TASKS to "No tasks are installed.",
         Key.TAP_MIC to "Tap the mic and tell me what you want to do.",
+        Key.CHOOSE_APP to "Which app would you like to use?",
+        Key.OPENING_APP to "Opening %s…",
+        Key.APP_WONT_OPEN to "I couldn't open that app. Pick another one.",
+        Key.NO_RIDE_APPS to "There are no taxi apps on this phone.",
     )
 
     private val HI = mapOf(
@@ -56,11 +65,33 @@ object Phrases {
         Key.RESUMED to "चलिए वहीं से आगे बढ़ते हैं।",
         Key.NO_TASKS to "कोई काम उपलब्ध नहीं है।",
         Key.TAP_MIC to "माइक दबाइए और बताइए आप क्या करना चाहते हैं।",
+        Key.CHOOSE_APP to "आप कौन सा ऐप इस्तेमाल करना चाहेंगे?",
+        Key.OPENING_APP to "%s खोल रहा हूँ…",
+        Key.APP_WONT_OPEN to "मैं वह ऐप नहीं खोल पाया। कोई दूसरा चुनिए।",
+        Key.NO_RIDE_APPS to "इस फ़ोन में कोई टैक्सी ऐप नहीं है।",
+    )
+
+    private val TA = mapOf(
+        Key.LISTENING to "கேட்டுக்கொண்டிருக்கிறேன்… முடிந்ததும் மைக்கை மீண்டும் தட்டுங்கள்.",
+        Key.THINKING to "ஒரு நிமிடம்…",
+        Key.DIDNT_CATCH to "எனக்குப் புரியவில்லை — இங்கிருந்து தொடங்குவோம்.",
+        Key.HOLD_LONGER to "எனக்குக் கேட்கவில்லை — மைக்கை இன்னும் சிறிது நேரம் பிடியுங்கள்.",
+        Key.MIC_OFF to "மைக் அணைக்கப்பட்டுள்ளது, அதனால் உங்கள் குரல் கேட்கவில்லை. படிப்படியாக வழிகாட்டுகிறேன்.",
+        Key.ALL_DONE to "அதுதான் கடைசி படி — முடிந்துவிட்டது!",
+        Key.STOPPED to "நிறுத்திவிட்டேன். தொடர விரும்பினால் மைக்கைத் தட்டுங்கள்.",
+        Key.RESUMED to "நாம் நிறுத்திய இடத்திலிருந்து தொடர்வோம்.",
+        Key.NO_TASKS to "எந்தப் பணியும் இல்லை.",
+        Key.TAP_MIC to "மைக்கைத் தட்டி, நீங்கள் என்ன செய்ய விரும்புகிறீர்கள் என்று சொல்லுங்கள்.",
+        Key.CHOOSE_APP to "எந்த ஆப்பைப் பயன்படுத்த விரும்புகிறீர்கள்?",
+        Key.OPENING_APP to "%s திறக்கிறேன்…",
+        Key.APP_WONT_OPEN to "என்னால் அந்த ஆப்பைத் திறக்க முடியவில்லை. வேறு ஒன்றைத் தேர்வுசெய்யுங்கள்.",
+        Key.NO_RIDE_APPS to "இந்த ஃபோனில் டாக்ஸி ஆப் எதுவும் இல்லை.",
     )
 
     private val BY_LANGUAGE = mapOf(
         "en-IN" to EN,
         "hi-IN" to HI,
+        "ta-IN" to TA,
     )
 
     /**

@@ -26,12 +26,12 @@ class TaskRepository private constructor(val tasks: List<GuidedTask>) {
         var bestScore = 0
         for (task in tasks) {
             val score = task.utterances.maxOfOrNull { overlap(words, normalize(it)) } ?: 0
-            if (score > bestScore) {
+            if (score > bestScore && (score >= 2 || words.size == 1)) {
                 bestScore = score
                 best = task
             }
         }
-        return if (bestScore > 0) best else null
+        return best
     }
 
     /**
@@ -114,10 +114,21 @@ class TaskRepository private constructor(val tasks: List<GuidedTask>) {
                 steps.add(
                     TaskStep(
                         id = s.getString("id"),
-                        resourceId = s.getString("resource_id"),
+                        // Optional now: a third-party step matches on visible
+                        // text instead, because its view ids are obfuscated.
+                        resourceId = s.optString("resource_id", ""),
                         instruction = s.getString("instruction"),
                         instructions = parseInstructions(s.optJSONObject("instructions")),
                         expectsValue = s.optBoolean("expects_value", false),
+                        kind = if (s.optString("kind") == "choose_app") {
+                            StepKind.CHOOSE_APP
+                        } else {
+                            StepKind.GUIDE
+                        },
+                        textAny = s.optJSONArray("text_any")?.let { arr ->
+                            (0 until arr.length()).map { arr.getString(it) }
+                        } ?: emptyList(),
+                        expectPackage = s.optString("expect_package", ""),
                         highlight = Highlight(
                             shape = h?.optString("shape", "rect") ?: "rect",
                             pulse = h?.optBoolean("pulse", true) ?: true,

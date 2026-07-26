@@ -20,6 +20,10 @@ data class PlannerResult(
      * can go straight to Bulbul.
      */
     val language: String = Language.DEFAULT,
+    val isDone: Boolean = false,
+    val targetText: String = "",
+    val actionType: String = "guide",
+    val actionPayload: String = "",
 ) {
     /** The instruction together with the language it is written in. */
     val spoken: Spoken get() = Spoken(instruction, language)

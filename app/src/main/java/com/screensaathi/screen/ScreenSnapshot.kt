@@ -26,6 +26,27 @@ data class ScreenSnapshot(
     fun boundsForResourceId(resourceId: String): Rect? =
         elements.firstOrNull { it.resourceId == resourceId }?.bounds
 
+    /**
+     * Bounds for a step that targets visible text rather than a view id.
+     *
+     * Third-party apps obfuscate their view ids, so the only stable handle on
+     * an Uber or Ola field is the label the user can see. Matching is
+     * case-insensitive and substring-based because these labels carry
+     * punctuation and trailing hints ("Where to?", "Enter drop location").
+     *
+     * Prefers an interactive element over a plain label: tapping "Where to?"
+     * means tapping the field, and the same words often appear on both a
+     * TextView and the EditText behind it.
+     */
+    fun boundsForText(candidates: List<String>): Rect? {
+        if (candidates.isEmpty()) return null
+        val matches = elements.filter { e ->
+            e.text.isNotEmpty() && candidates.any { e.text.contains(it, ignoreCase = true) }
+        }
+        if (matches.isEmpty()) return null
+        return (matches.firstOrNull { it.editable || it.clickable } ?: matches.first()).bounds
+    }
+
     fun elementForResourceId(resourceId: String): ScreenElement? =
         elements.firstOrNull { it.resourceId == resourceId }
 

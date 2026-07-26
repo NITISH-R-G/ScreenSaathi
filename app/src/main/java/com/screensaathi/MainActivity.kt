@@ -25,6 +25,10 @@ class MainActivity : AppCompatActivity() {
 
     private val micRequest = 101
 
+    private companion object {
+        const val EXTRA_ACTION = "saathi_action"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -64,11 +68,53 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_demo).setOnClickListener {
             startActivity(Intent(this, DemoTaskActivity::class.java))
         }
+
+        // Rehearsal triggers: identical path to a spoken request, minus STT.
+        mapOf(
+            R.id.btn_taxi_en to "en-IN",
+            R.id.btn_taxi_hi to "hi-IN",
+            R.id.btn_taxi_ta to "ta-IN",
+        ).forEach { (id, language) ->
+            findViewById<Button>(id).setOnClickListener {
+                if (!Settings.canDrawOverlays(this)) {
+                    toast("Grant 'display over other apps' first.")
+                    return@setOnClickListener
+                }
+                OverlayService.runTask(this, "book_taxi", language)
+                moveTaskToBack(true)
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        handleRehearsalIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
+    /**
+     * Lets a rehearsal be driven from outside — `adb shell am start ... --es
+     * saathi_action run|choose`. OverlayService is not exported (it must not
+     * be), so this exported activity is the only door in. It forwards and gets
+     * straight back out of the way.
+     */
+    private fun handleRehearsalIntent(intent: Intent?) {
+        val action = intent?.getStringExtra(EXTRA_ACTION) ?: return
+        when (action) {
+            "run" -> {
+                val task = intent.getStringExtra("task") ?: "book_taxi"
+                val language = intent.getStringExtra("language") ?: "en-IN"
+                OverlayService.runTask(this, task, language)
+            }
+            "choose" -> OverlayService.choose(this, intent.getIntExtra("choice", 0))
+        }
+        intent.removeExtra(EXTRA_ACTION)
+        finish()
     }
 
     private fun refreshStatus() {

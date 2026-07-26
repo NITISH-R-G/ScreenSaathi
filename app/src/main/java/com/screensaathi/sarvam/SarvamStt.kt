@@ -36,6 +36,7 @@ class SarvamStt {
             .setType(MultipartBody.FORM)
             .addFormDataPart("model", Sarvam.STT_MODEL)
             .addFormDataPart("mode", mode)
+            .addFormDataPart("language_code", "unknown")
             .addFormDataPart(
                 "file", "audio.wav",
                 wav.asRequestBody("audio/wav".toMediaTypeOrNull())

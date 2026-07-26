@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
+import com.screensaathi.AppLauncher
 import androidx.core.content.ContextCompat
 import com.screensaathi.ScreenReaderService
 import com.screensaathi.overlay.HighlightBounds
@@ -23,7 +24,10 @@ import com.screensaathi.sarvam.SarvamTts
 import com.screensaathi.sarvam.WavRecorder
 import com.screensaathi.screen.ScreenSnapshot
 import com.screensaathi.task.GuidedTask
+import com.screensaathi.task.RideApps
+import com.screensaathi.task.StepKind
 import com.screensaathi.task.TaskRepository
+import com.screensaathi.task.TaskStep
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -106,7 +110,13 @@ class SessionController(
      */
     private val turnId = AtomicInteger(0)
 
-    private fun newTurn(): Int = turnId.incrementAndGet()
+    private fun newTurn(): Int {
+        // Diagnostics belong to one turn. Without this the previous turn's note
+        // ("stopped by user at step amount") sits under the next turn's
+        // reading and describes something that is no longer happening.
+        debug = VoiceDebug()
+        return turnId.incrementAndGet()
+    }
     private fun isCurrent(turn: Int): Boolean = turnId.get() == turn
 
     /** Render only if [turn] is still the live one. */
@@ -121,6 +131,14 @@ class SessionController(
      * user is being pointed at.
      */
     @Volatile private var currentHighlight: HighlightBounds? = null
+
+    /**
+     * Options currently on the card, carried forward for the same reason as
+     * [currentHighlight]: OverlayCommand.choices defaults to empty, so the
+     * SPEAKING render issued while the question is being read aloud would
+     * otherwise wipe the very buttons the user is being asked to press.
+     */
+    @Volatile private var currentChoices: List<String> = emptyList()
 
     /** Diagnostics for the live turn, shown by long-pressing the pill. */
     @Volatile private var debug = VoiceDebug()
@@ -150,6 +168,12 @@ class SessionController(
             startDefaultTask(turn)
             return
         }
+        if (e.task.id == "open_ended") {
+            bg.post {
+                processOpenEndedNext(turn, e.task.title, null)
+            }
+            return
+        }
         if (e.isOnLastStep) {
             currentHighlight = null
             val done = Phrases.get(Phrases.Key.ALL_DONE, lastLanguage)
@@ -174,6 +198,10 @@ class SessionController(
         stopped = true
         player.stop()
         currentHighlight = null
+        currentChoices = emptyList()
+        // Drop the app pin: after a stop the user may pick a different app, and
+        // a stale pin would make guidance wait forever for the old one.
+        chosenPackage = ""
         val phrase = Phrases.get(Phrases.Key.STOPPED, lastLanguage)
         render(OverlayCommand(PillState.IDLE, expanded = true,
             instruction = phrase.text, highlight = null))
@@ -182,6 +210,33 @@ class SessionController(
 
     /** True once the user has stopped and before they resume. */
     val isStopped: Boolean get() = stopped
+
+    /**
+     * Run a task by id with no speech involved.
+     *
+     * This is the rehearsal path: it exercises the identical engine, overlay and
+     * cursor code as a spoken request, minus STT. Useful on stage when the room
+     * is too loud to trust a microphone, and the only way to regression-test the
+     * flow without a human voice. [language] lets a rehearsal show the Hindi or
+     * Tamil rendering without anyone having to speak it.
+     */
+    fun startTaskById(taskId: String, language: String = lastLanguage) {
+        val turn = newTurn()
+        abandonRecording(turn)
+        stopped = false
+        chosenPackage = ""
+        lastLanguage = Language.normalize(language)
+        val task = tasks.byId(taskId)
+        if (task == null) {
+            val none = Phrases.get(Phrases.Key.NO_TASKS, lastLanguage)
+            render(OverlayCommand(PillState.ERROR, expanded = true,
+                instruction = none.text, language = none.language))
+            return
+        }
+        val e = StepEngine(task); engine = e
+        publishDebug(turn) { it.copy(intent = task.id, language = lastLanguage, note = "rehearsal (no STT)") }
+        presentCurrentStep(e, turn, speak = true)
+    }
 
     private fun abandonRecording(turn: Int) {
         if (!isRecording) return
@@ -217,7 +272,6 @@ class SessionController(
         isRecording = true
         recordingTurn = turn
         currentHighlight = null
-        debug = VoiceDebug()
         renderIfCurrent(turn, OverlayCommand(PillState.LISTENING, expanded = true,
             instruction = Phrases.get(Phrases.Key.LISTENING, lastLanguage).text,
             language = lastLanguage))
@@ -281,15 +335,35 @@ class SessionController(
             it.copy(heard = sttResult.transcript, sttMs = sttMs, language = lastLanguage)
         }
 
-        val task = pickTask(sttResult.transcript)
-        if (task == null) {
-            publishDebug(turn) { it.copy(note = "no task matched") }
-            fallbackAfterFailedSpeech(turn, Phrases.Key.DIDNT_CATCH)
-            return
+        // Persistent memory: if we're waiting for an app choice, see if they spoke it.
+        val activeApps = offeredApps
+        if (activeApps.isNotEmpty()) {
+            val transcriptLower = sttResult.transcript.lowercase()
+            val matchIdx = activeApps.indexOfFirst { app ->
+                transcriptLower.contains(app.label.lowercase())
+            }
+            if (matchIdx >= 0) {
+                publishDebug(turn) { it.copy(note = "matched spoken choice: ${activeApps[matchIdx].label}") }
+                offeredApps = emptyList() // Clear so we don't trap future turns
+                // onChoiceTapped starts a new turn internally, so we don't need to post it to bg
+                // since we are already on bg, but it's safe to call directly.
+                onChoiceTapped(matchIdx)
+                return
+            }
         }
-        val e = engine?.takeIf { it.task.id == task.id } ?: StepEngine(task).also { engine = it }
+
+        val task = pickTask(sttResult.transcript)
+        // Clear offeredApps if we are starting/continuing a task to prevent stale state
+        offeredApps = emptyList()
 
         val snap = ScreenReaderService.instance?.snapshot() ?: ScreenSnapshot.EMPTY
+        if (task.id == "open_ended") {
+            processOpenEndedNext(turn, task.title, snap)
+            return
+        }
+
+        val e = engine?.takeIf { it.task.id == task.id } ?: StepEngine(task).also { engine = it }
+
         val tp0 = SystemClock.uptimeMillis()
         val plan = planner.plan(
             transcript = sttResult.transcript,
@@ -339,6 +413,62 @@ class SessionController(
         }
     }
 
+    private fun processOpenEndedNext(turn: Int, intent: String, snapshot: ScreenSnapshot?) {
+        val snap = snapshot ?: ScreenReaderService.instance?.snapshot() ?: ScreenSnapshot.EMPTY
+        
+        renderIfCurrent(turn, OverlayCommand(PillState.THINKING, expanded = true,
+            instruction = Phrases.get(Phrases.Key.THINKING, lastLanguage).text,
+            language = lastLanguage))
+
+        val tp0 = SystemClock.uptimeMillis()
+        val plan = planner.planOpenEnded(intent, snap, lastLanguage)
+        val planMs = SystemClock.uptimeMillis() - tp0
+        
+        if (!isCurrent(turn)) return
+        
+        if (plan != null) {
+            if (plan.isDone || plan.actionType == "answer") {
+                currentHighlight = null
+                val textToSpeak = if (plan.instruction.isNotBlank()) {
+                    Spoken(plan.instruction, plan.language)
+                } else {
+                    Phrases.get(Phrases.Key.ALL_DONE, lastLanguage)
+                }
+                renderIfCurrent(turn, OverlayCommand(PillState.IDLE, expanded = true,
+                    instruction = textToSpeak.text, highlight = null))
+                speech.post { speak(textToSpeak, turn) }
+                return
+            }
+            
+            // Create a single step guided task so we can reuse the presentation logic
+            val openEndedStep = TaskStep(
+                id = "open_ended_step",
+                resourceId = plan.targetResourceId,
+                instruction = plan.instruction,
+                textAny = if (plan.targetText.isNotEmpty()) listOf(plan.targetText) else emptyList(),
+                actionType = plan.actionType
+            )
+            val newTask = GuidedTask(1, "open_ended", intent, emptyList(), listOf(openEndedStep))
+            val e = StepEngine(newTask)
+            engine = e
+            
+            publishDebug(turn) {
+                it.copy(
+                    intent = intent, step = "open_ended_step",
+                    wantResourceId = plan.targetResourceId.ifEmpty { "text:${plan.targetText}" },
+                    planMs = planMs, confidence = plan.confidence,
+                    language = plan.language,
+                )
+            }
+            presentCurrentStep(e, turn, speak = true)
+        } else {
+            publishDebug(turn) {
+                it.copy(note = "planner unavailable or failed open-ended")
+            }
+            fallbackAfterFailedSpeech(turn, Phrases.Key.DIDNT_CATCH)
+        }
+    }
+
     // --- Deterministic path ---------------------------------------------------
 
     /**
@@ -359,8 +489,9 @@ class SessionController(
         presentStep(e, lead ?: e.currentStep.spokenFor(lastLanguage), turn, speak = true)
     }
 
-    private fun pickTask(transcript: String): GuidedTask? =
-        tasks.matchByUtterance(transcript) ?: tasks.byId(DEFAULT_TASK) ?: tasks.tasks.firstOrNull()
+    private fun pickTask(transcript: String): GuidedTask {
+        return GuidedTask(1, "open_ended", transcript, emptyList(), emptyList())
+    }
 
     private fun presentCurrentStep(e: StepEngine, turn: Int, speak: Boolean) {
         presentStep(e, e.currentStep.spokenFor(lastLanguage), turn, speak)
@@ -373,6 +504,16 @@ class SessionController(
      */
     private fun presentStep(e: StepEngine, instruction: Spoken, turn: Int, speak: Boolean) {
         val step = e.currentStep
+
+        // A choose-app step has no on-screen element to point at — it asks a
+        // question. Render the options and wait for a tap.
+        if (step.kind == StepKind.CHOOSE_APP) {
+            presentAppChoice(instruction, turn, speak)
+            return
+        }
+
+        // A guiding step has no options; clear any left over from the question.
+        currentChoices = emptyList()
         renderIfCurrent(turn, OverlayCommand(PillState.GUIDING, expanded = true,
             instruction = instruction.text, language = instruction.language, highlight = null))
 
@@ -384,14 +525,23 @@ class SessionController(
 
         bg.post {
             if (!isCurrent(turn)) return@post
+            // The package is only known once the user has picked an app, so it
+            // is pinned here rather than in the task JSON.
+            val target = if (chosenPackage.isNotEmpty() && step.expectPackage.isEmpty()) {
+                step.copy(expectPackage = chosenPackage)
+            } else {
+                step
+            }
+            val bounds = resolveBounds(target)
             val snap = ScreenReaderService.instance?.snapshot()
-            val bounds = resolveBounds(step.resourceId)
             val hl = bounds?.let {
                 HighlightBounds(it.left, it.top, it.right, it.bottom, step.highlight.shape, step.highlight.pulse)
             }
             publishDebug(turn) {
                 it.copy(
-                    wantResourceId = step.resourceId,
+                    wantResourceId = step.resourceId.ifEmpty {
+                        "text:" + step.textAny.firstOrNull().orEmpty()
+                    },
                     readerBound = ScreenReaderService.instance != null,
                     screenPackage = snap?.packageName ?: "-",
                     settled = snap?.settled,
@@ -406,6 +556,38 @@ class SessionController(
             currentHighlight = hl
             render(OverlayCommand(PillState.GUIDING, expanded = true,
                 instruction = instruction.text, language = instruction.language, highlight = hl))
+
+            if (step.actionType == "click") {
+                bg.postDelayed({
+                    if (!isCurrent(turn) || stopped) return@postDelayed
+                    ScreenReaderService.instance?.performClick(step.resourceId, step.textAny)
+                    
+                    bg.postDelayed({
+                        if (!isCurrent(turn) || stopped) return@postDelayed
+                        onNextTapped()
+                    }, 1000)
+                }, 300)
+            } else if (step.actionType == "type_text") {
+                bg.postDelayed({
+                    if (!isCurrent(turn) || stopped) return@postDelayed
+                    ScreenReaderService.instance?.performSetText(step.resourceId, step.textAny, step.actionPayload)
+                    
+                    bg.postDelayed({
+                        if (!isCurrent(turn) || stopped) return@postDelayed
+                        onNextTapped()
+                    }, 1000)
+                }, 300)
+            } else if (step.actionType == "launch_app") {
+                bg.postDelayed({
+                    if (!isCurrent(turn) || stopped) return@postDelayed
+                    AppLauncher.launchApp(context, step.actionPayload)
+                    
+                    bg.postDelayed({
+                        if (!isCurrent(turn) || stopped) return@postDelayed
+                        onNextTapped()
+                    }, 1000)
+                }, 300)
+            }
         }
     }
 
@@ -421,25 +603,105 @@ class SessionController(
             onStart = {
                 renderIfCurrent(turn, OverlayCommand(PillState.SPEAKING, expanded = true,
                     instruction = spoken.text, language = spoken.language,
-                    highlight = currentHighlight))
+                    highlight = currentHighlight, choices = currentChoices))
             },
             onDone = {
                 renderIfCurrent(turn, OverlayCommand(PillState.GUIDING, expanded = true,
                     instruction = spoken.text, language = spoken.language,
-                    highlight = currentHighlight))
+                    highlight = currentHighlight, choices = currentChoices))
             },
         )
     }
 
-    private fun resolveBounds(resourceId: String): Rect? {
-        repeat(RESOLVE_ATTEMPTS) {
+    /**
+     * Poll the live tree until the step's target shows up.
+     *
+     * Matches a resource id when the step has one (our own demo screen) and
+     * visible text when it does not (Uber, Ola, Rapido, whose view ids are
+     * obfuscated). When the step names a package, wait for that package to be
+     * in front first — a ride app takes a second or two to draw, and without
+     * this the ring lands on whatever was still on screen.
+     */
+    private fun resolveBounds(step: TaskStep): Rect? {
+        val attempts = if (step.expectPackage.isNotEmpty()) CROSS_APP_ATTEMPTS else RESOLVE_ATTEMPTS
+        repeat(attempts) {
             val snap = ScreenReaderService.instance?.snapshot()
-            val bounds = snap?.boundsForResourceId(resourceId)
-            if (bounds != null) return bounds
+            if (snap != null && step.expectPackage.let { it.isEmpty() || snap.packageName == it }) {
+                val bounds = when {
+                    step.resourceId.isNotEmpty() -> snap.boundsForResourceId(step.resourceId)
+                    else -> null
+                } ?: snap.boundsForText(step.textAny)
+                if (bounds != null) return bounds
+            }
             try { Thread.sleep(RESOLVE_INTERVAL_MS) } catch (_: InterruptedException) { return null }
         }
         return null
     }
+
+    // --- App choice -----------------------------------------------------------
+
+    /** The apps currently offered, parallel to OverlayCommand.choices. */
+    @Volatile private var offeredApps: List<RideApps.Installed> = emptyList()
+
+    private fun presentAppChoice(instruction: Spoken, turn: Int, speak: Boolean) {
+        val apps = RideApps.installed(context)
+        offeredApps = apps
+        currentHighlight = null
+        currentChoices = apps.map { it.label }
+
+        if (apps.isEmpty()) {
+            val none = Phrases.get(Phrases.Key.NO_RIDE_APPS, lastLanguage)
+            renderIfCurrent(turn, OverlayCommand(PillState.ERROR, expanded = true,
+                instruction = none.text, language = none.language))
+            if (speak) speech.post { speak(none, turn) }
+            return
+        }
+
+        publishDebug(turn) { it.copy(note = "offering ${apps.joinToString(",") { a -> a.label }}") }
+        renderIfCurrent(turn, OverlayCommand(PillState.GUIDING, expanded = true,
+            instruction = instruction.text, language = instruction.language,
+            highlight = null, choices = apps.map { it.label }))
+        if (speak) speech.post { speak(instruction, turn) }
+    }
+
+    /**
+     * The user picked a ride app. Launch it, then guide inside it — the next
+     * step is pinned to that package so the ring waits for the app to draw.
+     */
+    fun onChoiceTapped(index: Int) {
+        val apps = offeredApps
+        val app = apps.getOrNull(index) ?: return
+        val turn = newTurn()
+        stopped = false
+
+        val opening = Phrases.get(Phrases.Key.OPENING_APP, lastLanguage)
+        val spoken = Spoken(String.format(opening.text, app.label), opening.language)
+        render(OverlayCommand(PillState.THINKING, expanded = true,
+            instruction = spoken.text, language = spoken.language))
+
+        if (!RideApps.launch(context, app.packageName)) {
+            val failed = Phrases.get(Phrases.Key.APP_WONT_OPEN, lastLanguage)
+            render(OverlayCommand(PillState.ERROR, expanded = true,
+                instruction = failed.text, language = failed.language,
+                choices = apps.map { it.label }))
+            speech.post { speak(failed, turn) }
+            return
+        }
+
+        speech.post { speak(spoken, turn) }
+
+        val e = engine ?: return
+        if (!e.advance()) return
+        // Pin the remaining steps to the app we just opened, so guidance waits
+        // for it instead of pointing at our own screen mid-launch.
+        chosenPackage = app.packageName
+        bg.post {
+            if (!isCurrent(turn)) return@post
+            presentCurrentStep(e, turn, speak = true)
+        }
+    }
+
+    @Volatile private var chosenPackage: String = ""
 
     private fun hasMicPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
@@ -471,6 +733,8 @@ class SessionController(
     companion object {
         private const val TAG = "SessionController"
         private const val RESOLVE_ATTEMPTS = 12
+        /** A cold ride app can take a couple of seconds to draw its first screen. */
+        private const val CROSS_APP_ATTEMPTS = 40
         private const val RESOLVE_INTERVAL_MS = 120L
         private const val CONFIDENCE_FLOOR = 0.5
         private const val DEFAULT_TASK = "pay_bill"

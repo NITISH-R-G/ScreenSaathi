@@ -32,7 +32,16 @@ object PillLabels {
         PillState.ERROR to "फिर से कोशिश करें",
     )
 
-    private val BY_LANGUAGE = mapOf("en-IN" to EN, "hi-IN" to HI)
+    private val TA = mapOf(
+        PillState.IDLE to "ஸ்கிரீன் சாத்தி",
+        PillState.LISTENING to "கேட்கிறேன்…",
+        PillState.THINKING to "யோசிக்கிறேன்…",
+        PillState.SPEAKING to "பேசுகிறேன்…",
+        PillState.GUIDING to "வழிகாட்டுகிறேன்",
+        PillState.ERROR to "மீண்டும் முயற்சிக்கலாம்",
+    )
+
+    private val BY_LANGUAGE = mapOf("en-IN" to EN, "hi-IN" to HI, "ta-IN" to TA)
 
     fun forState(state: PillState, language: String): String {
         val table = BY_LANGUAGE[Language.normalize(language)] ?: EN

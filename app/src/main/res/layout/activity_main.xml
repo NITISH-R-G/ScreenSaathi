@@ -64,6 +64,47 @@
             android:textColor="#FF0B0B0F"
             android:backgroundTint="@color/saathi_highlight" />
 
+        <!-- Rehearsal: run a task without speaking. Same engine, overlay and
+             cursor as a spoken request, minus STT — for a room too loud to
+             trust a microphone. -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rehearse without speaking"
+            android:textColor="@color/saathi_text_dim"
+            android:textSize="13sp"
+            android:paddingTop="22dp"
+            android:paddingBottom="6dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_taxi_en"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Taxi EN" />
+
+            <Button
+                android:id="@+id/btn_taxi_hi"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="टैक्सी HI" />
+
+            <Button
+                android:id="@+id/btn_taxi_ta"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="டாக்ஸி TA" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btn_demo"
             android:layout_width="match_parent"

@@ -29,4 +29,10 @@ data class OverlayCommand(
      * rather than staying English around a Hindi sentence.
      */
     val language: String = "en-IN",
+    /**
+     * Options for the user to pick from, e.g. the ride apps on this phone.
+     * Empty for an ordinary guiding step. The renderer shows one button per
+     * entry and reports back the index that was tapped.
+     */
+    val choices: List<String> = emptyList(),
 )

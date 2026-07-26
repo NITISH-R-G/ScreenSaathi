@@ -157,6 +157,100 @@ class SarvamPlanner(context: Context) {
             )
     }
 
+    fun planOpenEnded(
+        transcript: String,
+        screen: ScreenSnapshot,
+        spokenLanguage: String
+    ): PlannerResult? {
+        if (!Sarvam.hasKey()) {
+            Log.w(TAG, "No Sarvam key — planner unavailable")
+            return null
+        }
+
+        val userContent = buildString {
+            append("User intent: \"").append(transcript).append("\"\n")
+            append("Detected spoken language: ").append(Language.normalize(spokenLanguage))
+            append(" — reply in this language, in its own script.\n\n")
+            append(screen.toPromptText())
+        }
+
+        val openEndedSystemPrompt = "You are an autonomous Screen assistant. Given the user's intent and the current screen, identify the next step. Set action_type to 'launch_app' to open an app (and set action_payload to the app name), 'type_text' to type text into a field (set action_payload to the text), 'click' to automatically tap an element, 'guide' to point at it, or 'answer' to simply answer a user's question based on the screen context. If the user's intent is fully resolved or you are answering a question, set is_done=true. In your instruction, narrate the action or provide the direct answer to the user in their language."
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", openEndedSystemPrompt))
+            .put(JSONObject().put("role", "user").put("content", userContent))
+
+        val payload = JSONObject()
+            .put("model", Sarvam.PLANNER_MODEL)
+            .put("messages", messages)
+            .put("tools", JSONArray().put(toolSpecOpenEnded()))
+            .put("tool_choice", "required")
+            .put("parallel_tool_calls", false)
+            .put("reasoning_effort", JSONObject.NULL)
+            .put("temperature", 0.1)
+            .put("max_tokens", 300)
+            .toString()
+
+        val req = Request.Builder()
+            .url(Sarvam.CHAT_URL)
+            .addHeader(Sarvam.AUTH_HEADER, Sarvam.apiKey)
+            .post(payload.toRequestBody(JSON))
+            .build()
+
+        return try {
+            Sarvam.plannerHttp.newCall(req).execute().use { resp ->
+                val raw = resp.body?.string().orEmpty()
+                if (!resp.isSuccessful) {
+                    Log.w(TAG, "Planner ${resp.code}: $raw")
+                    return null
+                }
+                parseOpenEnded(raw, spokenLanguage, transcript)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Planner failed: ${e.message}")
+            null
+        }
+    }
+
+    private fun toolSpecOpenEnded(): JSONObject {
+        val params = JSONObject()
+            .put("type", "object")
+            .put(
+                "properties",
+                JSONObject()
+                    .put("is_done", JSONObject().put("type", "boolean"))
+                    .put("action_type", JSONObject().put("type", "string").put("enum", JSONArray().put("guide").put("click").put("launch_app").put("answer").put("type_text")))
+                    .put("action_payload", JSONObject().put("type", "string").put("description", "If action_type is launch_app, the app name. If action_type is type_text, the text to type."))
+                    .put("target_resource_id", JSONObject().put("type", "string"))
+                    .put("target_text", JSONObject().put("type", "string"))
+                    .put(
+                        "instruction",
+                        JSONObject().put("type", "string")
+                            .put("description", "A short phrase narrating the action being taken, or the direct answer to the user's question, in the user's own language and script.")
+                    )
+                    .put(
+                        "language",
+                        JSONObject().put("type", "string")
+                            .put("enum", JSONArray().apply { Language.SUPPORTED.forEach { put(it) } })
+                            .put("description", "BCP-47 code of the language `instruction` is written in.")
+                    )
+                    .put("confidence", JSONObject().put("type", "number"))
+                    .put("reason", JSONObject().put("type", "string"))
+            )
+            .put(
+                "required",
+                JSONArray().put("is_done").put("action_type").put("instruction").put("language").put("confidence").put("reason")
+            )
+        return JSONObject()
+            .put("type", "function")
+            .put(
+                "function",
+                JSONObject()
+                    .put("name", "set_next_step")
+                    .put("description", "Set the next guided step and the element to point at.")
+                    .put("parameters", params)
+            )
+    }
+
     companion object {
         private const val TAG = "SarvamPlanner"
         private const val PROMPT = "prompts/planner_v1.md"
@@ -205,6 +299,39 @@ class SarvamPlanner(context: Context) {
                     spokenText,
                     args.optString("language").takeIf { it.isNotBlank() } ?: spokenLanguage,
                 ),
+            )
+        }
+        fun parseOpenEnded(raw: String, spokenLanguage: String, transcript: String): PlannerResult? {
+            val message = JSONObject(raw)
+                .optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                ?: return null
+            val call = message.optJSONArray("tool_calls")?.optJSONObject(0)
+                ?: return null
+            val argsStr = call.optJSONObject("function")?.optString("arguments") ?: return null
+            val args = JSONObject(argsStr)
+
+            val isDone = args.optBoolean("is_done", false)
+            val actionType = args.optString("action_type", "guide")
+            val actionPayload = args.optString("action_payload", "")
+            val spokenText = args.optString("instruction")
+            
+            return PlannerResult(
+                version = 1,
+                intent = transcript,
+                step = "open_ended_step",
+                targetResourceId = args.optString("target_resource_id", ""),
+                targetIndex = -1,
+                instruction = spokenText,
+                confidence = args.optDouble("confidence", 0.5),
+                reason = args.optString("reason", "").take(80),
+                language = Language.reconcile(
+                    spokenText,
+                    args.optString("language").takeIf { it.isNotBlank() } ?: spokenLanguage,
+                ),
+                isDone = isDone,
+                targetText = args.optString("target_text", ""),
+                actionType = actionType,
+                actionPayload = actionPayload
             )
         }
     }
