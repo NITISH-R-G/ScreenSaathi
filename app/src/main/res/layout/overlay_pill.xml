@@ -58,6 +58,19 @@
                 android:gravity="center"
                 android:textColor="@color/saathi_text"
                 android:textSize="15sp" />
+
+            <!-- Stop: always reachable, so the user can call the guidance off
+                 mid-sentence without force-quitting anything. -->
+            <TextView
+                android:id="@+id/stop_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="#33FF5A5A"
+                android:text="■"
+                android:gravity="center"
+                android:textColor="@color/saathi_text"
+                android:textSize="15sp" />
         </LinearLayout>
 
         <!-- Debug panel (M5). Hidden by default; toggled by long-pressing the pill. -->
@@ -99,5 +112,19 @@
             android:textColor="@color/saathi_text"
             android:textSize="15sp"
             android:textStyle="bold" />
+
+        <!-- Which language the assistant is currently speaking. Visible proof
+             that detection happened, without a debug panel. -->
+        <TextView
+            android:id="@+id/language_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:background="#22FFFFFF"
+            android:text="English"
+            android:textColor="@color/saathi_text_dim"
+            android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

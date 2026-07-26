@@ -14,20 +14,26 @@ fields removed — only optional additions.
 
 ## Latency budgets (optimize the offending layer, don't guess)
 
-Measured via `scripts/smoke_sarvam.ps1` on 2026-07-26, venue network not yet tested.
+Measured via `scripts/smoke_sarvam.ps1`, `scripts/smoke_languages.ps1` and
+`scripts/smoke_planner_language.ps1` on 2026-07-26. Venue network not yet tested.
 
 | Layer                  | Target      | Measured        | Status |
 | ---------------------- | ----------- | --------------- | ------ |
-| Saaras STT             | < 800 ms    | 729 ms          | OK     |
-| Planner (Sarvam-30B)   | < 700 ms    | 606 ms          | OK     |
+| Saaras STT             | < 800 ms    | 666–729 ms      | OK     |
+| Planner (Sarvam-30B)   | < 700 ms    | 867–1481 ms     | OVER   |
 | Overlay update         | < 16 ms     | not instrumented| —      |
-| Bulbul TTS first audio | < 900 ms    | 1166–1427 ms    | OVER   |
+| Bulbul TTS first audio | < 900 ms    | 909–1462 ms     | OVER   |
 | End-to-end response    | < 2.5 s     | not instrumented| —      |
 
-**TTS is the one layer over budget.** Not blocking the visual (the highlight
-lands before speech starts), so it is an M4 performance item, not an M1 blocker.
-Options when we get there: shorter instruction strings, or start TTS
-concurrently with bounds resolution instead of after it.
+**Neither over-budget layer blocks the visual any more.** TTS now runs on its
+own thread, started in parallel with bounds resolution rather than after it, so
+the cursor and ring land while Bulbul is still synthesising.
+
+The planner regressed from 606 ms to ~900–1400 ms when the prompt grew to carry
+the language contract (713 prompt tokens). It is capped at a hard 5 s call
+timeout (`Sarvam.plannerHttp`) because the deterministic step engine answers
+instantly and for free — beyond a few seconds, falling back is strictly better
+than waiting. Trimming the prompt further is the M4 lever.
 
 ## Demo-day gotchas (learned the hard way on device)
 
@@ -43,7 +49,18 @@ concurrently with bounds resolution instead of after it.
 
 ## Parked items
 
-_(none yet — add as `- [source] idea → which of the 5 buckets, or PARKED`)_
+- Planner ignores "skip ahead" in Hindi. "सीधे submit पर ले चलो" (take me
+  straight to submit) returns `step: amount`. English skip-ahead was never
+  re-tested after the prompt rewrite. → **Planner/prompt improvement**, worth
+  fixing before the demo if a judge is likely to try it.
+- Phrases are authored in English and Hindi only. Bulbul speaks ten languages
+  and Saaras detects all ten, so a Tamil speaker gets Tamil *planner*
+  instructions but English chrome ("Listening…"). → **UX improvement**;
+  adding a language is adding a column to `Phrases`.
+- TTS speaker is `anand` for every language. Verified to work in all ten, but a
+  per-language voice would sound better. → **UX improvement**, PARKED.
+- No barge-in: speaking over the assistant does not interrupt it, the user has
+  to tap Stop. → **UX improvement**, PARKED (needs continuous capture).
 
 ## Explicitly out of scope (from the reference app, deliberately dropped)
 

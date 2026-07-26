@@ -13,4 +13,14 @@ data class PlannerResult(
     val instruction: String,
     val confidence: Double,
     val reason: String,
-)
+    /**
+     * BCP-47 code of the language [instruction] is written in — an optional
+     * addition to the v1 contract, which permits new optional fields but no
+     * removals. Always normalized to a code we can actually speak, so the pair
+     * can go straight to Bulbul.
+     */
+    val language: String = Language.DEFAULT,
+) {
+    /** The instruction together with the language it is written in. */
+    val spoken: Spoken get() = Spoken(instruction, language)
+}

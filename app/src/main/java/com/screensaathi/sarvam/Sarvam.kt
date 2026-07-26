@@ -35,4 +35,23 @@ object Sarvam {
             .readTimeout(15, TimeUnit.SECONDS)
             .build()
     }
+
+    /**
+     * The planner gets a hard ceiling on the whole call, not just on socket
+     * idle time.
+     *
+     * Its budget is 700 ms and it normally answers in ~600. But an overlong
+     * system prompt was observed making sarvam-30b stall well past 40 s
+     * without ever tripping the read timeout, because bytes kept trickling.
+     * On stage that is a frozen pill. The step engine can answer instantly and
+     * for free, so anything beyond a few seconds is strictly worse than
+     * falling back — share the connection pool, cap the call.
+     */
+    val plannerHttp: OkHttpClient by lazy {
+        http.newBuilder()
+            .callTimeout(PLANNER_CALL_TIMEOUT_S, TimeUnit.SECONDS)
+            .build()
+    }
+
+    private const val PLANNER_CALL_TIMEOUT_S = 5L
 }

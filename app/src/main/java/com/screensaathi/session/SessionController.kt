@@ -14,7 +14,9 @@ import com.screensaathi.overlay.HighlightBounds
 import com.screensaathi.overlay.OverlayCommand
 import com.screensaathi.overlay.PillState
 import com.screensaathi.sarvam.AudioPlayer
+import com.screensaathi.sarvam.Language
 import com.screensaathi.sarvam.Sarvam
+import com.screensaathi.sarvam.Spoken
 import com.screensaathi.sarvam.SarvamPlanner
 import com.screensaathi.sarvam.SarvamStt
 import com.screensaathi.sarvam.SarvamTts
@@ -64,6 +66,15 @@ class SessionController(
     private val captureWorker = HandlerThread("saathi-capture").apply { start() }
     private val capture = Handler(captureWorker.looper)
 
+    /**
+     * Speech synthesis and playback. Separate from [bg] so Bulbul's ~1.2 s —
+     * the slowest layer in the loop — never sits in front of the next
+     * highlight resolution. The visual path is the demo; it must never queue
+     * behind audio.
+     */
+    private val speechWorker = HandlerThread("saathi-speech").apply { start() }
+    private val speech = Handler(speechWorker.looper)
+
     private val tasks: TaskRepository = TaskRepository.load(context)
     private var engine: StepEngine? = null
 
@@ -74,7 +85,17 @@ class SessionController(
     private val player = AudioPlayer(context)
 
     @Volatile private var isRecording = false
-    @Volatile private var lastLanguage = "hi-IN"
+
+    /**
+     * The language the user last spoke, as detected by Saaras. Everything the
+     * assistant says is chosen for this. It starts at [Language.DEFAULT] rather
+     * than a guessed "hi-IN": before anyone has spoken we have no evidence, and
+     * English is the one language every authored string exists in.
+     */
+    @Volatile private var lastLanguage = Language.DEFAULT
+
+    /** Set by [onStopTapped]; cleared as soon as the user engages again. */
+    @Volatile private var stopped = false
 
     /** Turn that owns the in-progress capture, so stop() reads the right file. */
     @Volatile private var recordingTurn = -1
@@ -122,12 +143,8 @@ class SessionController(
         // Opening a turn here invalidates any plan still in flight, so a slow
         // planner response cannot yank the user back a step after they advance.
         val turn = newTurn()
-        if (isRecording) {
-            // Advancing mid-utterance abandons it: that capture belongs to a
-            // turn the user has just walked away from.
-            isRecording = false
-            capture.post { recorder.stop(); purgeStaleCaptures(turn) }
-        }
+        abandonRecording(turn)
+        stopped = false
         val e = engine
         if (e == null) {
             startDefaultTask(turn)
@@ -135,18 +152,49 @@ class SessionController(
         }
         if (e.isOnLastStep) {
             currentHighlight = null
+            val done = Phrases.get(Phrases.Key.ALL_DONE, lastLanguage)
             renderIfCurrent(turn, OverlayCommand(PillState.IDLE, expanded = true,
-                instruction = "That's the last step — you're all done!", highlight = null))
+                instruction = done.text, highlight = null))
+            bg.post { speak(done, turn) }
             return
         }
         e.advance()
         presentCurrentStep(e, turn, speak = true)
     }
 
+    /**
+     * Stop cleanly: silence speech, drop any in-flight turn, clear the ring,
+     * and keep the step position so the next mic tap resumes rather than
+     * restarts. The user must be able to call it off mid-sentence without
+     * leaving the pill stuck in "Listening…" or the ring orphaned on screen.
+     */
+    fun onStopTapped() {
+        val turn = newTurn()
+        abandonRecording(turn)
+        stopped = true
+        player.stop()
+        currentHighlight = null
+        val phrase = Phrases.get(Phrases.Key.STOPPED, lastLanguage)
+        render(OverlayCommand(PillState.IDLE, expanded = true,
+            instruction = phrase.text, highlight = null))
+        publishDebug(turn) { it.copy(note = "stopped by user at step ${engine?.currentStep?.id ?: "-"}") }
+    }
+
+    /** True once the user has stopped and before they resume. */
+    val isStopped: Boolean get() = stopped
+
+    private fun abandonRecording(turn: Int) {
+        if (!isRecording) return
+        // The capture belongs to a turn the user has just walked away from.
+        isRecording = false
+        capture.post { recorder.stop(); purgeStaleCaptures(turn) }
+    }
+
     // --- Voice loop -----------------------------------------------------------
 
     private fun startListening() {
         val turn = newTurn()
+        stopped = false
 
         // A denied microphone used to fail silently: recorder.start() returned
         // false and the app quietly ran the deterministic task, so the user was
@@ -154,7 +202,7 @@ class SessionController(
         if (!hasMicPermission()) {
             startDefaultTask(
                 turn,
-                lead = "Microphone access is off, so I can't hear you — I'll guide you step by step.",
+                lead = Phrases.get(Phrases.Key.MIC_OFF, lastLanguage),
                 note = "RECORD_AUDIO denied",
             )
             return
@@ -171,7 +219,8 @@ class SessionController(
         currentHighlight = null
         debug = VoiceDebug()
         renderIfCurrent(turn, OverlayCommand(PillState.LISTENING, expanded = true,
-            instruction = "Listening… tap the mic again when you're done."))
+            instruction = Phrases.get(Phrases.Key.LISTENING, lastLanguage).text,
+            language = lastLanguage))
 
         capture.post {
             purgeStaleCaptures(turn)
@@ -186,7 +235,9 @@ class SessionController(
         // The capture's own turn, not whatever is current — they diverge if
         // anything opened a turn while the user was still speaking.
         val turn = recordingTurn
-        render(OverlayCommand(PillState.THINKING, expanded = true, instruction = "One moment…"))
+        render(OverlayCommand(PillState.THINKING, expanded = true,
+            instruction = Phrases.get(Phrases.Key.THINKING, lastLanguage).text,
+            language = lastLanguage))
 
         capture.post {
             recorder.stop()
@@ -205,7 +256,7 @@ class SessionController(
         if (heldMs < MIN_SPEECH_MS) {
             publishDebug(turn) { it.copy(note = "too short (${heldMs}ms) — no STT call") }
             wav.delete()
-            fallbackAfterFailedSpeech(turn, "I didn't catch that — hold the mic a moment longer.")
+            fallbackAfterFailedSpeech(turn, Phrases.Key.HOLD_LONGER)
             return
         }
 
@@ -221,23 +272,32 @@ class SessionController(
 
         if (sttResult == null || sttResult.transcript.isBlank()) {
             publishDebug(turn) { it.copy(sttMs = sttMs, note = "STT returned nothing") }
-            fallbackAfterFailedSpeech(turn, "I didn't catch that — let's start here.")
+            fallbackAfterFailedSpeech(turn, Phrases.Key.DIDNT_CATCH)
             return
         }
-        sttResult.languageCode?.let { lastLanguage = it }
-        publishDebug(turn) { it.copy(heard = sttResult.transcript, sttMs = sttMs) }
+        // Everything the assistant says from here on is chosen for this.
+        lastLanguage = sttResult.language
+        publishDebug(turn) {
+            it.copy(heard = sttResult.transcript, sttMs = sttMs, language = lastLanguage)
+        }
 
         val task = pickTask(sttResult.transcript)
         if (task == null) {
             publishDebug(turn) { it.copy(note = "no task matched") }
-            fallbackAfterFailedSpeech(turn, "I didn't catch that — let's start here.")
+            fallbackAfterFailedSpeech(turn, Phrases.Key.DIDNT_CATCH)
             return
         }
         val e = engine?.takeIf { it.task.id == task.id } ?: StepEngine(task).also { engine = it }
 
         val snap = ScreenReaderService.instance?.snapshot() ?: ScreenSnapshot.EMPTY
         val tp0 = SystemClock.uptimeMillis()
-        val plan = planner.plan(sttResult.transcript, task, snap)
+        val plan = planner.plan(
+            transcript = sttResult.transcript,
+            task = task,
+            screen = snap,
+            spokenLanguage = lastLanguage,
+            currentStepId = e.currentStep.id,
+        )
         val planMs = SystemClock.uptimeMillis() - tp0
 
         if (!isCurrent(turn)) return
@@ -248,9 +308,10 @@ class SessionController(
                     intent = plan.intent, step = plan.step,
                     wantResourceId = plan.targetResourceId,
                     planMs = planMs, confidence = plan.confidence,
+                    language = plan.language,
                 )
             }
-            presentStep(e, plan.instruction, turn, speak = true)
+            presentStep(e, plan.spoken, turn, speak = true)
         } else {
             // Planner unsure or unavailable — deterministic order wins.
             publishDebug(turn) {
@@ -265,19 +326,16 @@ class SessionController(
         }
     }
 
-    private fun fallbackAfterFailedSpeech(turn: Int, lead: String) {
+    /**
+     * Speech failed. Keep the user moving in their own language rather than
+     * dead-ending, and resume where they were if a task is already running.
+     */
+    private fun fallbackAfterFailedSpeech(turn: Int, key: Phrases.Key) {
         val e = engine
         if (e != null) {
-            presentStep(e, e.currentStep.instruction, turn, speak = true)
+            presentCurrentStep(e, turn, speak = true)
         } else {
-            val task = tasks.byId(DEFAULT_TASK) ?: tasks.tasks.firstOrNull()
-            if (task == null) {
-                renderIfCurrent(turn, OverlayCommand(PillState.ERROR, expanded = true,
-                    instruction = "No tasks are installed."))
-            } else {
-                val ne = StepEngine(task); engine = ne
-                presentStep(ne, lead, turn, speak = true)
-            }
+            startDefaultTask(turn, lead = Phrases.get(key, lastLanguage))
         }
     }
 
@@ -288,23 +346,24 @@ class SessionController(
      * the caller explain *why* we are on this path instead of silently
      * pretending the voice loop ran.
      */
-    private fun startDefaultTask(turn: Int, lead: String? = null, note: String? = null) {
+    private fun startDefaultTask(turn: Int, lead: Spoken? = null, note: String? = null) {
         note?.let { n -> publishDebug(turn) { it.copy(note = n) } }
         val task = tasks.byId(DEFAULT_TASK) ?: tasks.tasks.firstOrNull()
         if (task == null) {
+            val none = Phrases.get(Phrases.Key.NO_TASKS, lastLanguage)
             renderIfCurrent(turn, OverlayCommand(PillState.ERROR, expanded = true,
-                instruction = "No tasks are installed."))
+                instruction = none.text, language = none.language))
             return
         }
         val e = StepEngine(task); engine = e
-        presentStep(e, lead ?: e.currentStep.instruction, turn, speak = true)
+        presentStep(e, lead ?: e.currentStep.spokenFor(lastLanguage), turn, speak = true)
     }
 
     private fun pickTask(transcript: String): GuidedTask? =
         tasks.matchByUtterance(transcript) ?: tasks.byId(DEFAULT_TASK) ?: tasks.tasks.firstOrNull()
 
     private fun presentCurrentStep(e: StepEngine, turn: Int, speak: Boolean) {
-        presentStep(e, e.currentStep.instruction, turn, speak)
+        presentStep(e, e.currentStep.spokenFor(lastLanguage), turn, speak)
     }
 
     /**
@@ -312,10 +371,16 @@ class SessionController(
      * instruction. Rendering is always pushed back through the callback, and
      * always gated on [turn] still being live.
      */
-    private fun presentStep(e: StepEngine, instruction: String, turn: Int, speak: Boolean) {
+    private fun presentStep(e: StepEngine, instruction: Spoken, turn: Int, speak: Boolean) {
         val step = e.currentStep
         renderIfCurrent(turn, OverlayCommand(PillState.GUIDING, expanded = true,
-            instruction = instruction, highlight = null))
+            instruction = instruction.text, language = instruction.language, highlight = null))
+
+        // Speech is kicked off in parallel with bounds resolution, on its own
+        // thread. Bulbul's ~1.2 s is the slowest layer we have; running it here
+        // meant the *next* interaction's highlight queued behind it, so an
+        // impatient second tap looked like a frozen pill.
+        if (speak) speech.post { speak(instruction, turn) }
 
         bg.post {
             if (!isCurrent(turn)) return@post
@@ -340,26 +405,28 @@ class SessionController(
             if (!isCurrent(turn)) return@post
             currentHighlight = hl
             render(OverlayCommand(PillState.GUIDING, expanded = true,
-                instruction = instruction, highlight = hl))
-            if (speak) speak(instruction, turn)
+                instruction = instruction.text, language = instruction.language, highlight = hl))
         }
     }
 
-    private fun speak(text: String, turn: Int) {
+    /** Runs on [speech]. Never on the thread that resolves the highlight. */
+    private fun speak(spoken: Spoken, turn: Int) {
         if (!Sarvam.hasKey()) return
-        val bytes = tts.synthesize(text, languageCode = lastLanguage) ?: return
-        if (!isCurrent(turn)) return
+        val bytes = tts.synthesize(spoken) ?: return
+        if (!isCurrent(turn) || stopped) return
         // Carry currentHighlight through both renders — the ring must survive
         // the speaking state, not blink out while the instruction is read.
         player.play(
             bytes,
             onStart = {
                 renderIfCurrent(turn, OverlayCommand(PillState.SPEAKING, expanded = true,
-                    instruction = text, highlight = currentHighlight))
+                    instruction = spoken.text, language = spoken.language,
+                    highlight = currentHighlight))
             },
             onDone = {
                 renderIfCurrent(turn, OverlayCommand(PillState.GUIDING, expanded = true,
-                    instruction = text, highlight = currentHighlight))
+                    instruction = spoken.text, language = spoken.language,
+                    highlight = currentHighlight))
             },
         )
     }
@@ -398,6 +465,7 @@ class SessionController(
         recorder.stop()
         worker.quitSafely()
         captureWorker.quitSafely()
+        speechWorker.quitSafely()
     }
 
     companion object {

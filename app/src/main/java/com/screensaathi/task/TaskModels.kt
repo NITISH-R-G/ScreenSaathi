@@ -1,5 +1,8 @@
 package com.screensaathi.task
 
+import com.screensaathi.sarvam.Language
+import com.screensaathi.sarvam.Spoken
+
 /**
  * In-memory form of the Task DSL (contracts/task.schema.json).
  * Plain data classes — no framework, so the step engine stays testable.
@@ -13,10 +16,28 @@ data class Highlight(
 data class TaskStep(
     val id: String,
     val resourceId: String,
+    /** Base wording, authored in [Language.DEFAULT]. Always present. */
     val instruction: String,
+    /** Optional per-language wording, keyed by full code ("hi-IN"). */
+    val instructions: Map<String, String> = emptyMap(),
     val expectsValue: Boolean = false,
     val highlight: Highlight = Highlight(),
-)
+) {
+    /**
+     * The step's wording in [language] if the DSL carries it, otherwise the
+     * base English text labelled as English.
+     *
+     * Returning a [Spoken] rather than a bare String is the point: the offline
+     * path used to hand English DSL text to Bulbul tagged with the user's
+     * detected language, which Bulbul rejects outright. The caller can no
+     * longer lose track of which language the words are in.
+     */
+    fun spokenFor(language: String): Spoken {
+        val code = Language.normalize(language)
+        instructions[code]?.let { return Spoken(it, code) }
+        return Spoken(instruction, Language.DEFAULT)
+    }
+}
 
 data class GuidedTask(
     val version: Int,
