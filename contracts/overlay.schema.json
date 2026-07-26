@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "screensaathi/contracts/overlay.schema.json",
+  "title": "Overlay render command contract v1 — FROZEN at M1",
+  "description": "The only inputs the overlay renderer accepts. Everything above the overlay (step engine, planner) speaks to it exclusively through this command. The renderer NEVER reasons — it only draws what it is told. FROZEN.",
+  "type": "object",
+  "required": ["pill_state"],
+  "additionalProperties": false,
+  "properties": {
+    "pill_state": {
+      "enum": ["idle", "listening", "thinking", "speaking", "guiding", "error"],
+      "description": "Drives the pill's visual state and animation. idle=collapsed; listening=mic active; thinking=planner in flight; speaking=TTS playing; guiding=highlight shown; error=fallback state."
+    },
+    "expanded": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the assistant card is expanded. Animated independently of the highlight."
+    },
+    "instruction": {
+      "type": "string",
+      "description": "Text shown on the expanded card. Usually mirrors what is being spoken."
+    },
+    "highlight": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "bounds": {
+          "type": "object",
+          "required": ["left", "top", "right", "bottom"],
+          "additionalProperties": false,
+          "properties": {
+            "left": { "type": "integer" },
+            "top": { "type": "integer" },
+            "right": { "type": "integer" },
+            "bottom": { "type": "integer" }
+          }
+        },
+        "shape": { "enum": ["circle", "rect"], "default": "rect" },
+        "pulse": { "type": "boolean", "default": true }
+      },
+      "description": "Where to draw the pointer, in screen pixels. null clears the highlight. Animated on its own animator, independent of pill expansion — this independence is what makes movement read as smooth."
+    }
+  }
+}

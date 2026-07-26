@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The floating assistant, anchored at the bottom of the screen. Collapsed =
+     the pill row only. Expanded = the card body unfolds ABOVE the pill row so
+     the pill stays put at the bottom edge and the card grows upward, never
+     covering the form fields the highlight points at. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pill_root"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/pill_bg"
+    android:padding="10dp"
+    android:elevation="12dp">
+
+    <!-- Card body: shown only when expanded. Sits ABOVE the pill row. -->
+    <LinearLayout
+        android:id="@+id/card_body"
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/instruction_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tap the mic and tell me what you want to do."
+            android:textColor="@color/saathi_text"
+            android:textSize="16sp"
+            android:lineSpacingExtra="2dp"
+            android:paddingBottom="12dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/mic_button"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:background="@drawable/mic_btn_bg"
+                android:text="🎤"
+                android:gravity="center"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/next_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:background="#33FFFFFF"
+                android:text="Next ▸"
+                android:gravity="center"
+                android:textColor="@color/saathi_text"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- Debug panel (M5). Hidden by default; toggled by long-pressing the pill. -->
+        <TextView
+            android:id="@+id/debug_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:fontFamily="monospace"
+            android:textColor="@color/saathi_text_dim"
+            android:textSize="11sp"
+            android:visibility="gone"
+            android:text="" />
+    </LinearLayout>
+
+    <!-- Pill row: always visible. Tap to expand/collapse. Stays at the bottom. -->
+    <LinearLayout
+        android:id="@+id/pill_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_gravity="center_horizontal"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp">
+
+        <View
+            android:id="@+id/state_dot"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:background="@drawable/mic_btn_bg" />
+
+        <TextView
+            android:id="@+id/pill_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="ScreenSaathi"
+            android:textColor="@color/saathi_text"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

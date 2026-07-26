@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- High-contrast highlight so the pointer reads from across a demo room. -->
+    <color name="saathi_accent">#FF4D8DFF</color>
+    <color name="saathi_highlight">#FF00E5A0</color>
+    <color name="saathi_pill_bg">#F00B0B0F</color>
+    <color name="saathi_text">#FFFFFFFF</color>
+    <color name="saathi_text_dim">#B3FFFFFF</color>
+</resources>
