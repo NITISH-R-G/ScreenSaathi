@@ -23,9 +23,22 @@ class WavRecorder {
     private val channel = AudioFormat.CHANNEL_IN_MONO
     private val encoding = AudioFormat.ENCODING_PCM_16BIT
 
+    /** PCM payload bytes captured in the last take, excluding the 44-byte header. */
+    @Volatile
+    var bytesRecorded: Long = 0L
+        private set
+
+    /**
+     * Captured audio length in ms. The caller uses this to refuse to spend an
+     * STT round trip on a double-tapped mic that recorded nothing.
+     */
+    val recordedMs: Long
+        get() = bytesRecorded * 1000 / (sampleRate * BYTES_PER_SAMPLE)
+
     @SuppressLint("MissingPermission") // caller ensures RECORD_AUDIO is granted
     fun start(outFile: File): Boolean {
         if (recording) return false
+        bytesRecorded = 0L
         val minBuf = AudioRecord.getMinBufferSize(sampleRate, channel, encoding)
         if (minBuf <= 0) return false
         val bufSize = minBuf * 2
@@ -67,6 +80,7 @@ class WavRecorder {
                     if (n > 0) {
                         raf.write(buf, 0, n)
                         total += n
+                        bytesRecorded = total
                     }
                 }
                 // Patch sizes now that we know the payload length.
@@ -79,7 +93,7 @@ class WavRecorder {
     }
 
     private fun writeWavHeader(raf: RandomAccessFile, dataLen: Int) {
-        val byteRate = sampleRate * 2 // mono * 16-bit
+        val byteRate = sampleRate * BYTES_PER_SAMPLE // mono * 16-bit
         val riffLen = 36 + dataLen
         val header = ByteArray(44)
         fun putStr(off: Int, s: String) { for (i in s.indices) header[off + i] = s[i].code.toByte() }
@@ -100,5 +114,8 @@ class WavRecorder {
         raf.write(header)
     }
 
-    companion object { private const val TAG = "WavRecorder" }
+    companion object {
+        private const val TAG = "WavRecorder"
+        private const val BYTES_PER_SAMPLE = 2
+    }
 }
