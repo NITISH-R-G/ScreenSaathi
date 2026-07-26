@@ -22,4 +22,11 @@ data class OverlayCommand(
     val expanded: Boolean = false,
     val instruction: String? = null,
     val highlight: HighlightBounds? = null,
+    /**
+     * Language of [instruction], BCP-47. Optional addition to the v1 overlay
+     * contract. The renderer uses it for the pill's own labels ("Listening…")
+     * and the language chip, so the chrome speaks the user's language too
+     * rather than staying English around a Hindi sentence.
+     */
+    val language: String = "en-IN",
 )

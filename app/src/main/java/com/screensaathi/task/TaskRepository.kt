@@ -2,6 +2,7 @@ package com.screensaathi.task
 
 import android.content.Context
 import android.util.Log
+import com.screensaathi.sarvam.Language
 import org.json.JSONObject
 
 /**
@@ -33,11 +34,22 @@ class TaskRepository private constructor(val tasks: List<GuidedTask>) {
         return if (bestScore > 0) best else null
     }
 
+    /**
+     * Lowercase, strip punctuation, split into words of 3+ characters.
+     *
+     * Punctuation is removed by *category*, not by an `[^a-z0-9 ]` allowlist.
+     * That allowlist deleted every non-Latin character, so a Saaras transcript
+     * of Hindi speech — which comes back in Devanagari, e.g.
+     * "बिजली का बिल भरना है" — normalized to the empty set and matched nothing
+     * at all. Hindi is the primary demo language, so the matcher was silently
+     * dead on the path that matters most.
+     */
     private fun normalize(s: String): Set<String> =
         s.lowercase()
-            .replace(Regex("[^a-z0-9 ]"), " ")
-            .split(Regex("\\s+"))
-            .filter { it.length > 2 }
+            .map { if (it.isLetterOrDigit()) it else ' ' }
+            .joinToString("")
+            .split(' ')
+            .filter { it.length >= MIN_WORD_LENGTH }
             .toSet()
 
     private fun overlap(a: Set<String>, b: Set<String>): Int = a.count { it in b }
@@ -45,6 +57,12 @@ class TaskRepository private constructor(val tasks: List<GuidedTask>) {
     companion object {
         private const val TAG = "TaskRepository"
         private const val DIR = "tasks"
+
+        /** Drops "a"/"is"/"का" style filler without dropping real content words. */
+        private const val MIN_WORD_LENGTH = 3
+
+        /** Visible for testing: build a repository without an AssetManager. */
+        fun of(tasks: List<GuidedTask>): TaskRepository = TaskRepository(tasks)
 
         fun load(context: Context): TaskRepository {
             val out = mutableListOf<GuidedTask>()
@@ -67,6 +85,26 @@ class TaskRepository private constructor(val tasks: List<GuidedTask>) {
             return TaskRepository(out)
         }
 
+        /**
+         * Optional `"instructions": { "hi-IN": "…" }` block on a step. Unknown
+         * or unspeakable codes are dropped here rather than at synthesis time,
+         * where they would surface as a silent 400 from Bulbul.
+         */
+        private fun parseInstructions(o: JSONObject?): Map<String, String> {
+            if (o == null) return emptyMap()
+            val out = LinkedHashMap<String, String>()
+            for (key in o.keys()) {
+                val text = o.optString(key)
+                if (text.isBlank()) continue
+                if (!Language.isSupported(key)) {
+                    Log.w(TAG, "Ignoring unsupported instruction language '$key'")
+                    continue
+                }
+                out[Language.normalize(key)] = text
+            }
+            return out
+        }
+
         fun parse(o: JSONObject): GuidedTask {
             val stepsJson = o.getJSONArray("steps")
             val steps = ArrayList<TaskStep>(stepsJson.length())
@@ -78,6 +116,7 @@ class TaskRepository private constructor(val tasks: List<GuidedTask>) {
                         id = s.getString("id"),
                         resourceId = s.getString("resource_id"),
                         instruction = s.getString("instruction"),
+                        instructions = parseInstructions(s.optJSONObject("instructions")),
                         expectsValue = s.optBoolean("expects_value", false),
                         highlight = Highlight(
                             shape = h?.optString("shape", "rect") ?: "rect",

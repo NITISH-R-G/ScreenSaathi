@@ -17,7 +17,10 @@ import org.json.JSONObject
  */
 class SarvamStt {
 
-    data class Result(val transcript: String, val languageCode: String?)
+    data class Result(val transcript: String, val languageCode: String?) {
+        /** Detected language, or the safe default when Saaras did not say. */
+        val language: String get() = Language.normalize(languageCode)
+    }
 
     /** Blocking. Call off the main thread. */
     fun transcribe(wav: File, mode: String = "transcribe"): Result? {
@@ -55,7 +58,13 @@ class SarvamStt {
                 val json = JSONObject(raw)
                 val transcript = json.optString("transcript", "")
                 if (transcript.isBlank()) return null
-                Result(transcript, json.optString("language_code").takeIf { it.isNotBlank() })
+                // Saaras returns the language in the speaker's own script
+                // ("hi-IN" for Devanagari output). Normalize immediately so a
+                // code we cannot speak never travels further into the app.
+                val detected = json.optString("language_code")
+                    .takeIf { it.isNotBlank() }
+                    ?.let { Language.normalize(it) }
+                Result(transcript, detected)
             }
         } catch (e: Exception) {
             Log.w(TAG, "STT failed: ${e.message}")

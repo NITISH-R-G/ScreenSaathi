@@ -23,7 +23,9 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.screensaathi.overlay.HighlightView
 import com.screensaathi.overlay.OverlayCommand
+import com.screensaathi.overlay.PillLabels
 import com.screensaathi.overlay.PillState
+import com.screensaathi.sarvam.Language
 import com.screensaathi.session.SessionController
 
 /**
@@ -46,6 +48,7 @@ class OverlayService : Service() {
     private lateinit var pillLabel: TextView
     private lateinit var instructionText: TextView
     private lateinit var stateDot: View
+    private lateinit var languageChip: TextView
     private lateinit var debugPanel: TextView
 
     private var expanded = false
@@ -92,6 +95,7 @@ class OverlayService : Service() {
         pillLabel = pillRoot.findViewById(R.id.pill_label)
         instructionText = pillRoot.findViewById(R.id.instruction_text)
         stateDot = pillRoot.findViewById(R.id.state_dot)
+        languageChip = pillRoot.findViewById(R.id.language_chip)
         debugPanel = pillRoot.findViewById(R.id.debug_panel)
 
         pillRoot.findViewById<View>(R.id.pill_row).setOnClickListener { toggleExpanded() }
@@ -102,6 +106,7 @@ class OverlayService : Service() {
         }
         pillRoot.findViewById<View>(R.id.mic_button).setOnClickListener { controller.onMicTapped() }
         pillRoot.findViewById<View>(R.id.next_button).setOnClickListener { controller.onNextTapped() }
+        pillRoot.findViewById<View>(R.id.stop_button).setOnClickListener { controller.onStopTapped() }
 
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -132,21 +137,27 @@ class OverlayService : Service() {
     // --- Rendering (the whole job of this class) ------------------------------
 
     private fun render(cmd: OverlayCommand) {
-        // Pill state → dot colour + label.
-        val (dotColor, label) = when (cmd.pillState) {
-            PillState.IDLE -> Color.parseColor("#4D8DFF") to "ScreenSaathi"
-            PillState.LISTENING -> Color.parseColor("#FF5A5A") to "Listening…"
-            PillState.THINKING -> Color.parseColor("#FFC24D") to "Thinking…"
-            PillState.SPEAKING -> Color.parseColor("#00E5A0") to "Speaking…"
-            PillState.GUIDING -> Color.parseColor("#00E5A0") to "Guiding you"
-            PillState.ERROR -> Color.parseColor("#FF5A5A") to "Let's try again"
+        val dotColor = when (cmd.pillState) {
+            PillState.IDLE -> Color.parseColor("#4D8DFF")
+            PillState.LISTENING -> Color.parseColor("#FF5A5A")
+            PillState.THINKING -> Color.parseColor("#FFC24D")
+            PillState.SPEAKING -> Color.parseColor("#00E5A0")
+            PillState.GUIDING -> Color.parseColor("#00E5A0")
+            PillState.ERROR -> Color.parseColor("#FF5A5A")
         }
         stateDot.background.setTint(dotColor)
-        pillLabel.text = label
+        // The pill's own label speaks the user's language too — an English
+        // "Listening…" above a Hindi instruction breaks the illusion instantly.
+        pillLabel.text = PillLabels.forState(cmd.pillState, cmd.language)
+        languageChip.text = Language.nativeName(cmd.language)
 
         cmd.instruction?.let { instructionText.text = it }
 
         if (cmd.expanded != expanded) setExpanded(cmd.expanded)
+
+        // Keep the cursor's launch point under the pill, so it always flies out
+        // of the assistant rather than appearing from nowhere.
+        publishHomePosition()
 
         val h = cmd.highlight
         if (h == null) {
@@ -154,6 +165,17 @@ class OverlayService : Service() {
         } else {
             highlightView.show(h.left, h.top, h.right, h.bottom, h.shape, h.pulse)
         }
+    }
+
+    /** Screen position of the pill, handed to the cursor layer as its home. */
+    private fun publishHomePosition() {
+        val loc = IntArray(2)
+        pillRoot.findViewById<View>(R.id.pill_row).getLocationOnScreen(loc)
+        val row = pillRoot.findViewById<View>(R.id.pill_row)
+        highlightView.setHome(
+            loc[0] + row.width / 2f,
+            loc[1] + row.height / 2f,
+        )
     }
 
     /** Debug panel content. Visibility stays user-controlled (long-press the pill). */

@@ -1,5 +1,7 @@
 package com.screensaathi.session
 
+import com.screensaathi.sarvam.Language
+
 /**
  * One voice turn's diagnostics, accumulated and rendered as a single panel.
  *
@@ -15,6 +17,8 @@ package com.screensaathi.session
  */
 data class VoiceDebug(
     val heard: String? = null,
+    /** Language detected from speech, or the one the planner replied in. */
+    val language: String? = null,
     val intent: String? = null,
     val step: String? = null,
     val wantResourceId: String? = null,
@@ -34,6 +38,7 @@ data class VoiceDebug(
 
     fun toPanel(): String = buildString {
         heard?.let { line("heard", it.take(40)) }
+        language?.let { line("lang", "$it (${Language.nativeName(it)})") }
         if (intent != null || step != null) {
             line("intent", "${intent ?: "-"}  step: ${step ?: "-"}")
         }

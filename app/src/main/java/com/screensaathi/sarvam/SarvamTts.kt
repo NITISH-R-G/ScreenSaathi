@@ -17,20 +17,29 @@ import org.json.JSONObject
  */
 class SarvamTts {
 
-    /** Blocking. Call off the main thread. Returns WAV bytes ready for playback. */
-    fun synthesize(
-        text: String,
-        languageCode: String = "hi-IN",
-        speaker: String = DEFAULT_SPEAKER,
-    ): ByteArray? {
+    /**
+     * Blocking. Call off the main thread. Returns WAV bytes ready for playback.
+     *
+     * Takes a [Spoken] rather than a loose text+code pair on purpose. Bulbul
+     * rejects a mismatch outright —
+     * "Text must contain at least one character from the allowed languages" —
+     * and a rejected call is indistinguishable from the app having nothing to
+     * say. The language is reconciled against the text one last time here, so
+     * no caller can make the app go mute by mislabelling a string.
+     */
+    fun synthesize(spoken: Spoken, speaker: String = DEFAULT_SPEAKER): ByteArray? {
         if (!Sarvam.hasKey()) {
             Log.w(TAG, "No Sarvam key set — TTS unavailable")
             return null
         }
-        if (text.isBlank()) return null
+        if (spoken.text.isBlank()) return null
+        val languageCode = Language.reconcile(spoken.text, spoken.language)
+        if (languageCode != spoken.language) {
+            Log.w(TAG, "Language '${spoken.language}' does not match the text; sending $languageCode")
+        }
 
         val payload = JSONObject()
-            .put("text", text)
+            .put("text", spoken.text)
             .put("target_language_code", languageCode)
             .put("speaker", speaker)
             .put("model", Sarvam.TTS_MODEL)

@@ -5,6 +5,7 @@
   "description": "The only thing the planner is allowed to return. FROZEN: no field is ever removed after M1; only optional fields may be added. The overlay renderer consumes target + instruction and ignores the rest; confidence/reason exist for the debug overlay (M5) and for triage, not for rendering.",
   "type": "object",
   "required": ["version", "intent", "step", "target", "instruction", "confidence", "reason"],
+  "$comment": "language is intentionally NOT required: it was added after the M1 freeze, and a plan without it is still a valid v1 plan (it defaults to en-IN).",
   "additionalProperties": false,
   "properties": {
     "version": {
@@ -38,7 +39,12 @@
     "instruction": {
       "type": "string",
       "maxLength": 140,
-      "description": "One short spoken instruction. Read aloud verbatim by Bulbul and shown on the card."
+      "description": "One short spoken instruction, written in the user's own language and script. Read aloud verbatim by Bulbul and shown on the card."
+    },
+    "language": {
+      "type": "string",
+      "enum": ["en-IN", "hi-IN", "bn-IN", "gu-IN", "kn-IN", "ml-IN", "mr-IN", "pa-IN", "ta-IN", "te-IN"],
+      "description": "OPTIONAL, added after M1 (the freeze permits additions, never removals). BCP-47 code of the language `instruction` is written in — it describes the text, not the user's speech. Bulbul rejects a text/code mismatch outright (\"Text must contain at least one character from the allowed languages\") and the app then goes silent, so the client reconciles this against the script actually used before trusting it. Absent means en-IN. Every listed code was verified end to end against live Bulbul + Saaras by scripts/smoke_languages.ps1."
     },
     "confidence": {
       "type": "number",
