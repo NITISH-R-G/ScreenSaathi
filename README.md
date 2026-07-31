@@ -1,5 +1,10 @@
 # ScreenSaathi
 
+[![Android CI](https://github.com/NITISH-R-G/ScreenSaathi/actions/workflows/android.yml/badge.svg)](https://github.com/NITISH-R-G/ScreenSaathi/actions/workflows/android.yml)
+[![License: MIT](https://img.shields.io/github/license/NITISH-R-G/ScreenSaathi)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/kotlin-100%25-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Min SDK](https://img.shields.io/badge/minSdk-26-brightgreen)](app/build.gradle.kts)
+
 A screen-aware voice copilot for Android. A floating Dynamic-Island-style pill
 listens, understands what the user is trying to do, reads the screen through
 accessibility, draws a highlight on the real element, and speaks the next
@@ -21,7 +26,7 @@ companion: it points at the thing you should touch next, and tells you why.
 `session/SessionController.kt` orchestrates them. `session/StepEngine.kt` is the
 deterministic core that completes the task with no network at all.
 
-Architecture is **frozen** after M1. See `PARKING_LOT.md`.
+Architecture is **frozen** after M1. See `docs/PARKING_LOT.md`.
 
 ## Build
 
@@ -68,4 +73,4 @@ latency, confidence). Keep it hidden during a real demo.
 
 > **Demo-day landmine:** `adb install` or force-stop silently unbinds the
 > accessibility service. The app keeps working but the highlight stops resolving.
-> After any reinstall, toggle the screen reader off and on. See `PARKING_LOT.md`.
+> After any reinstall, toggle the screen reader off and on. See `docs/PARKING_LOT.md`.
