@@ -12,6 +12,7 @@ import android.text.TextUtils
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -53,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.btn_accessibility).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            explainAccessibilityThenOpenSettings()
         }
 
         findViewById<Button>(R.id.btn_start).setOnClickListener {
@@ -115,6 +116,34 @@ class MainActivity : AppCompatActivity() {
         }
         intent.removeExtra(EXTRA_ACTION)
         finish()
+    }
+
+    /**
+     * `BIND_ACCESSIBILITY_SERVICE` is the single scariest permission dialog on
+     * Android, and the OS prompt explains none of it — the audit that flagged
+     * this called it out as the single biggest reason a first-time user quits
+     * before ever seeing the product work. This dialog is the one screen
+     * between "unexplained scary permission" and an informed decision; the
+     * full accounting lives in docs/DATA_HANDLING.md if that's not enough.
+     */
+    private fun explainAccessibilityThenOpenSettings() {
+        AlertDialog.Builder(this)
+            .setTitle("Why ScreenSaathi needs this")
+            .setMessage(
+                "This lets the app read the text and layout of the screen " +
+                    "you're currently looking at, so it can point at the right " +
+                    "field and button.\n\n" +
+                    "It reads the foreground app only, as text — never a " +
+                    "screenshot, never other apps in the background. That text " +
+                    "is sent to Sarvam's cloud service to decide what to say next.\n\n" +
+                    "On the next screen, find ScreenSaathi under Downloaded " +
+                    "apps or Installed apps and turn it on."
+            )
+            .setPositiveButton("Continue") { _, _ ->
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+            .setNegativeButton("Not now", null)
+            .show()
     }
 
     private fun refreshStatus() {
