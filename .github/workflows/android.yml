@@ -10,16 +10,26 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege: this workflow only reads the repo and writes build
+# artifacts, so the default token gets no more than that.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
+      # Full history, not just the tip commit: gitleaks below scans the whole
+      # log, and a key removed from HEAD but still sitting in an earlier commit
+      # is exactly the case a shallow clone would hide.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # A committed local.properties would mean a leaked Sarvam key. Fail loudly
-      # and before anything else rather than let it sit in history unnoticed.
+      # Fast, specific, cheap: catches the exact Sarvam key shape before the
+      # heavier general-purpose scanner even starts.
       - name: Guard against a committed key
         run: |
           if git ls-files --error-unmatch local.properties >/dev/null 2>&1; then
@@ -31,6 +41,15 @@ jobs:
             exit 1
           fi
           echo "No key material tracked."
+
+      # General-purpose secret scan across the full history. The check above
+      # only knows the one shape we expect today (Sarvam keys); this catches
+      # anything else - a stray AWS key, a Google API key, a private cert -
+      # committed by mistake in any commit, not just the current tree.
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-java@v4
         with:
