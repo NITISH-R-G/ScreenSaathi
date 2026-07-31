@@ -13,11 +13,12 @@ import java.io.File
 class AudioPlayer(private val context: Context) {
 
     private var player: MediaPlayer? = null
+    private val clip = File(context.cacheDir, "saathi_tts.wav")
 
     fun play(wavBytes: ByteArray, onStart: () -> Unit, onDone: () -> Unit) {
         stop()
         try {
-            val f = File(context.cacheDir, "saathi_tts.wav")
+            val f = clip
             f.writeBytes(wavBytes)
             val mp = MediaPlayer()
             player = mp
@@ -50,6 +51,10 @@ class AudioPlayer(private val context: Context) {
         } finally {
             player = null
         }
+        // The input WAV (WavRecorder) is deleted right after its STT call;
+        // this one wasn't, so a spoken clip sat in cache indefinitely between
+        // turns. Same rule should apply to both temp files.
+        runCatching { clip.delete() }
     }
 
     companion object { private const val TAG = "AudioPlayer" }
