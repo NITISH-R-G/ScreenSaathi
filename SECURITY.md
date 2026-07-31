@@ -25,7 +25,7 @@ buried:
   and skips its own overlay's views. It does **not** take screenshots and does
   **not** read arbitrary background apps — only the foreground window, only
   while the service is enabled.
-- That snapshot is sent, as text, to the Sarvam-30B planner API
+- That snapshot is sent, as text, to the Sarvam-105B planner API
   (`sarvam/SarvamPlanner.kt`) to decide which step and element to point at.
   Recorded audio is sent to Saaras STT; the spoken instruction is sent to
   Bulbul TTS. All three are outbound calls to `api.sarvam.ai` over HTTPS.

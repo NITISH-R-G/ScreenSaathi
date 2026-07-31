@@ -18,7 +18,7 @@ What's missing or wrong today, concretely — not "it would be nice if."
 
 
 **Does this touch a frozen contract or one of the five core pieces?**
-(overlay pill / ScreenReaderService / Saaras STT / Bulbul TTS / Sarvam-30B
+(overlay pill / ScreenReaderService / Saaras STT / Bulbul TTS / Sarvam-105B
 planner / any file in `contracts/`)
 If yes, explain why the current design can't absorb this change without
 breaking it.

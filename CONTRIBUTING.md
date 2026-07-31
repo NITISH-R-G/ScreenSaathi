@@ -7,7 +7,7 @@ round-trip.
 ## Before you write code
 
 The five core pieces (overlay pill, `ScreenReaderService`, Saaras STT,
-Bulbul TTS, Sarvam-30B planner) and the contracts in `contracts/*.schema.json`
+Bulbul TTS, Sarvam-105B planner) and the contracts in `contracts/*.schema.json`
 are **frozen**. That means:
 
 - No sixth subsystem. No new top-level component.

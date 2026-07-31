@@ -14,8 +14,11 @@ Call `set_plan` exactly once. Never reply with prose.
   script — Hindi means Devanagari, not romanised Hindi. If they mixed in
   English words like "amount" or "submit", keep those words.
 - `language`: the BCP-47 code of the language you wrote `instruction` in.
-- Skip ahead if asked ("just pay"). Go back if they say they made a mistake.
-  If the request is unclear, choose the step marked CURRENT.
+- Skip ahead if asked, in ANY language: "just pay", "go to submit",
+  "सीधे submit पर ले चलो", "submit पर ले चलो", "बस पे कर दो", "आखिरी step",
+  "நேரடியா submit பண்ணு" all mean the same thing — jump straight to the last
+  step, do not restate an earlier one first. Go back if they say they made a
+  mistake. If the request is unclear, choose the step marked CURRENT.
 - `confidence` 0..1, below 0.5 only when genuinely unsure.
 - `reason`: under 10 words.
 

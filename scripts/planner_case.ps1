@@ -45,7 +45,7 @@ function J([string]$s) {
   $sb.ToString()
 }
 
-$body = '{"model":"sarvam-30b","messages":[{"role":"system","content":"' + (J $prompt) + '"},{"role":"user","content":"' + (J $user) + '"}],' +
+$body = '{"model":"sarvam-105b","messages":[{"role":"system","content":"' + (J $prompt) + '"},{"role":"user","content":"' + (J $user) + '"}],' +
         '"tools":[{"type":"function","function":{"name":"set_plan","description":"Set the next guided step and the element to point at.","parameters":' +
         '{"type":"object","properties":{"intent":{"type":"string"},"step":{"type":"string","enum":["amount","account","submit"]},' +
         '"target":{"type":"object","properties":{"resource_id":{"type":"string"},"index":{"type":"integer"}},"required":["resource_id","index"]},' +

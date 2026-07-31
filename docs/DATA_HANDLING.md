@@ -34,7 +34,7 @@ Three outbound calls, all HTTPS to `api.sarvam.ai`, all defined in
 | Call | What is sent | What comes back |
 | --- | --- | --- |
 | Saaras STT | The recorded `.wav` clip | Transcript + detected language |
-| Sarvam-30B planner | The transcript, the current task's step ids, and the current screen snapshot as plain text | A step id, a target resource id, a spoken instruction, and a language code |
+| Sarvam-105B planner | The transcript, the current task's step ids, and the current screen snapshot as plain text | A step id, a target resource id, a spoken instruction, and a language code |
 | Bulbul TTS | The instruction text and its language code | Synthesized audio (WAV) |
 
 No third party other than Sarvam ever receives data from this app. There is
