@@ -34,7 +34,7 @@ on-device screenshots, not mockups.
 ```mermaid
 flowchart TD
     U([User speaks]) --> STT[Saaras STT<br/>transcript + language]
-    STT --> P[Sarvam-30B planner<br/>forced tool call]
+    STT --> P[Sarvam-105B planner<br/>forced tool call]
     R[ScreenReaderService<br/>read-only accessibility snapshot] --> P
     P -->|step + target + instruction<br/>+ language, all in the user's script| SC[SessionController]
     SC --> OV[OverlayService]
@@ -51,7 +51,7 @@ Five pieces, and only five — this is a deliberate freeze, not an oversight:
 | Overlay pill | `OverlayService.kt`, `overlay/HighlightView.kt` | Renders an `OverlayCommand`. Never reasons. |
 | Screen reader | `ScreenReaderService.kt`, `screen/ScreenSnapshot.kt` | Read-only accessibility snapshot. No gestures. |
 | Saaras STT | `sarvam/SarvamStt.kt`, `sarvam/WavRecorder.kt` | 16 kHz mono WAV → transcript + language. |
-| Sarvam-30B planner | `sarvam/SarvamPlanner.kt` | Forced tool call → the frozen planner contract. |
+| Sarvam-105B planner | `sarvam/SarvamPlanner.kt` | Forced tool call → the frozen planner contract. |
 | Bulbul TTS | `sarvam/SarvamTts.kt`, `sarvam/AudioPlayer.kt` | Instruction → warm spoken audio (`anand`). |
 
 `session/SessionController.kt` orchestrates them. `session/StepEngine.kt` is the

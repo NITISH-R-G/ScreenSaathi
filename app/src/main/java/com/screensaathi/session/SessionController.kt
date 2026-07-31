@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * The orchestration layer. Turns UI taps into OverlayCommands, driving the
  * deterministic StepEngine plus (when a key is present and calls succeed) the
- * Sarvam voice loop: Saaras STT -> Sarvam-30B planner -> highlight -> Bulbul TTS.
+ * Sarvam voice loop: Saaras STT -> Sarvam-105B planner -> highlight -> Bulbul TTS.
  *
  * Every network step has a deterministic fallback. If the key is missing or any
  * call fails, mic-tap starts the task and Next advances in order — the overlay

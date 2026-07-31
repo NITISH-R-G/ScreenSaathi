@@ -11,7 +11,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Sarvam-30B planner. Forces a single structured tool call (tool_choice
+ * Sarvam-105B planner. Forces a single structured tool call (tool_choice
  * required) so the model always returns the FROZEN planner schema, never prose.
  * reasoning_effort is disabled — this is a fast routing decision, not a
  * chain-of-thought task, and reasoning tokens would blow the latency budget.

@@ -18,7 +18,15 @@ object Sarvam {
 
     const val STT_MODEL = "saaras:v3"
     const val TTS_MODEL = "bulbul:v3"
-    const val PLANNER_MODEL = "sarvam-30b"
+    // sarvam-30b (the model this app was originally built and verified
+    // against) was retired by Sarvam sometime between 2026-07-26 and
+    // 2026-07-31 - a live call now returns a hard 400 ("Model 'sarvam-30b' has
+    // been deprecated... use sarvam-105b"), which the planner correctly turns
+    // into a null and falls back to the deterministic StepEngine, but that
+    // means the planner was silently dead for every real user in the
+    // meantime. Re-verified live against sarvam-105b before switching this
+    // constant - see scripts/planner_case.ps1.
+    const val PLANNER_MODEL = "sarvam-105b"
 
     const val AUTH_HEADER = "api-subscription-key"
 
