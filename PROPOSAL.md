@@ -1,59 +1,39 @@
-# CODESTREAK
+# Architecture Proposal
 
-**Tech for Good 2026** · GDG Coimbatore · Build weekend Aug 8–9, GRD College
+> Fill this out and commit it by **Friday, July 24 · 11:59 PM IST**. This file *is*
+> your Ideation-Phase submission — no separate form. Keep it living; update it as
+> your design evolves.
 
-**Track:** AI for Strong Institutions
-**Team code:** TEAM-018
+- **Team name:** _<!-- your team name -->_
+- **Team code:** _<!-- e.g. TEAM-000 (from your organizers) -->_
+- **Track:** _<!-- AI for Good Health & Well-being / Zero Hunger & Economic Growth / Sustainable Cities & Climate Action / Strong Institutions -->_
+- **Members:** _<!-- Name (GitHub @handle), Name (@handle), … -->_
 
-## Problem
+## 1. Problem
+_What problem are you solving, and why does it matter? Who feels it today?_
 
-Lakshmi, a 68 year old grandmother in Coimbatore, wants to book an online OP consultation through the eSanjeevani OPD Android app, but struggles to navigate the English interface and is unsure which buttons to press. She often depends on family members to complete a simple healthcare task that should be accessible independently.
+## 2. Who it helps
+_The specific people or community that benefits, and how you'll reach them._
 
-## Who it helps
+## 3. Proposed solution
+_Your approach in a few sentences — what you'll build and how it addresses the problem._
 
-Elderly Android users and first time smartphone users who need to book appointments through the eSanjeevani OPD app but struggle with English interfaces and complex navigation.
+## 4. High-level architecture
+_Key components and how data flows. A diagram is welcome (drop an image in `/docs`)._
 
-## Solution
+```
+<!-- e.g. Mobile PWA → Vercel function → Gemini API (OCR) → Postgres
+             ↘ Cloud Run cron for the nightly sync -->
+```
 
-We are extending ScreenSaathi into an AI powered accessibility copilot for one specific task: helping users successfully book an online consultation through the eSanjeevani OPD Android app.
+## 5. Tech stack
+_Languages, frameworks, and the Google/AI tools you plan to use (Gemini API, Cloud Run, Firebase, etc.)._
 
-The assistant observes the current screen using Android's Accessibility Service, understands each step of the booking flow with a vision language model, highlights exactly where the user should tap, and explains every step in the user's preferred language until the appointment is successfully booked.
+## 6. Milestones to hackathon day
+_A rough plan from now to Aug 8–9._
 
-Unlike traditional screen readers, the assistant provides contextual, task oriented guidance instead of simply reading screen content aloud.
+- [ ] …
+- [ ] …
 
-## Architecture
-
-eSanjeevani OPD Android App
-            │
-            ▼
-Android Accessibility Service
-            │
-            ▼
-Screen Context Extraction
-            │
-            ▼
-Vision Language Model
-            │
-            ▼
-Booking Workflow Reasoning Engine
-            │
-            ├────────► Voice Guidance (Tamil / Hindi / English)
-            │
-            └────────► Tap Highlight Overlay
-            │
-            ▼
-Successful Appointment Confirmation
-
-## Tech stack
-
-Kotlin Android Accessibility Service Gemini Vision / OpenAI Vision FastAPI Firebase PostgreSQL
-
-## Getting started
-
-1. Accept your collaborator invite (check your email / GitHub notifications).
-2. Clone this repo and start building.
-3. Commit early and often — this repo is what you present on the day.
-
----
-
-_Created automatically when your proposal was validated._
+## 7. Open questions / help needed
+_Anything you're unsure about or want mentor input on._
