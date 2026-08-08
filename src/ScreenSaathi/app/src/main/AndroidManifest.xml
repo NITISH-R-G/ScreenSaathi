@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- The whole product is a floating overlay; without this there is no UI. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <!-- Package visibility (Android 11+): without these, getLaunchIntentForPackage
+         returns null for every one of them and the app reports that no taxi app
+         is installed on a phone that plainly has three. Named explicitly rather
+         than QUERY_ALL_PACKAGES — we only ever offer this list. Keep in sync
+         with RideApps.KNOWN. -->
+    <queries>
+        <package android:name="com.ubercab" />
+        <package android:name="com.olacabs.customer" />
+        <package android:name="com.rapido.passenger" />
+        <package android:name="in.indrive.client" />
+        <package android:name="com.blusmart.rider" />
+        <package android:name="app.nammayatri.passenger" />
+        <package android:name="com.meru.mgt" />
+    </queries>
+
+    <application
+        android:name=".SaathiApp"
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ScreenSaathi">
+
+        <!-- Setup gateway only: grants permissions, starts the overlay, then
+             gets out of the way. Not part of the demo flow. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The controlled screen the assistant guides the user through. Real
+             Android views with real resource ids, read live over accessibility. -->
+        <activity
+            android:name=".DemoTaskActivity"
+            android:exported="false"
+            android:label="@string/demo_title"
+            android:windowSoftInputMode="adjustResize" />
+
+        <service
+            android:name=".OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <service
+            android:name=".ScreenReaderService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+    </application>
+</manifest>

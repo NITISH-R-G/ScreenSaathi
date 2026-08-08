@@ -1,0 +1,50 @@
+package com.screensaathi.overlay
+
+import com.screensaathi.sarvam.Language
+
+/**
+ * The pill's own one-word status, in the user's language.
+ *
+ * These were English literals inside the renderer's `when`, so a Hindi speaker
+ * got a Devanagari instruction under an English "Listening…". The chrome has to
+ * switch language with the content or the illusion breaks at a glance.
+ *
+ * Kept beside the renderer rather than in session/Phrases because these are
+ * render-time labels for a PillState, not things the assistant ever says aloud.
+ */
+object PillLabels {
+
+    private val EN = mapOf(
+        PillState.IDLE to "ScreenSaathi",
+        PillState.LISTENING to "Listening…",
+        PillState.THINKING to "Thinking…",
+        PillState.SPEAKING to "Speaking…",
+        PillState.GUIDING to "Guiding you",
+        PillState.ERROR to "Let's try again",
+    )
+
+    private val HI = mapOf(
+        PillState.IDLE to "स्क्रीन साथी",
+        PillState.LISTENING to "सुन रहा हूँ…",
+        PillState.THINKING to "सोच रहा हूँ…",
+        PillState.SPEAKING to "बोल रहा हूँ…",
+        PillState.GUIDING to "रास्ता दिखा रहा हूँ",
+        PillState.ERROR to "फिर से कोशिश करें",
+    )
+
+    private val TA = mapOf(
+        PillState.IDLE to "ஸ்கிரீன் சாத்தி",
+        PillState.LISTENING to "கேட்கிறேன்…",
+        PillState.THINKING to "யோசிக்கிறேன்…",
+        PillState.SPEAKING to "பேசுகிறேன்…",
+        PillState.GUIDING to "வழிகாட்டுகிறேன்",
+        PillState.ERROR to "மீண்டும் முயற்சிக்கலாம்",
+    )
+
+    private val BY_LANGUAGE = mapOf("en-IN" to EN, "hi-IN" to HI, "ta-IN" to TA)
+
+    fun forState(state: PillState, language: String): String {
+        val table = BY_LANGUAGE[Language.normalize(language)] ?: EN
+        return table[state] ?: EN.getValue(state)
+    }
+}

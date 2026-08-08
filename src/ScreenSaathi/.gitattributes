@@ -1,0 +1,9 @@
+# The Gradle wrapper script must keep LF endings or the Linux CI runner fails
+# with "bad interpreter" the moment a Windows checkout commits CRLF.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Binary
+gradle/wrapper/gradle-wrapper.jar binary
+*.wav binary
+*.apk binary

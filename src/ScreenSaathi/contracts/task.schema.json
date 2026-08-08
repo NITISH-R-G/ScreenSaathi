@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "screensaathi/contracts/task.schema.json",
+  "title": "Task DSL contract v1 — FROZEN at M1",
+  "description": "A guided task, authored as data in assets/tasks/*.json. The step engine is generic over this file from M1, so adding a task in M3 is a drop-in file with zero code change.",
+  "type": "object",
+  "required": ["version", "id", "title", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Task id. Matches planner output 'intent'."
+    },
+    "title": {
+      "type": "string",
+      "description": "Human title, shown on the overlay card."
+    },
+    "utterances": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Example phrasings that start this task. Used for the deterministic keyword fallback when the planner is unavailable — NOT the primary matcher."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "resource_id", "instruction"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "Bare view id (without package prefix) to locate on screen, e.g. amount_field."
+          },
+          "instruction": {
+            "type": "string",
+            "maxLength": 140,
+            "description": "Spoken aloud verbatim. Keep it one short sentence."
+          },
+          "expects_value": {
+            "type": "boolean",
+            "default": false,
+            "description": "True when this step collects a value the user speaks. Drives M2 self-correction (last stated value wins)."
+          },
+          "highlight": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "shape": { "enum": ["circle", "rect"], "default": "rect" },
+              "pulse": { "type": "boolean", "default": true }
+            }
+          }
+        }
+      }
+    }
+  }
+}

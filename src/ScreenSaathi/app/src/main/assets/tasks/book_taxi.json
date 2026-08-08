@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "id": "book_taxi",
+  "title": "Book a Taxi",
+  "utterances": [
+    "i want to book a taxi",
+    "book a taxi",
+    "book a cab for me",
+    "i need a ride",
+    "call a taxi",
+    "mujhe taxi book karni hai",
+    "taxi chahiye",
+    "मुझे टैक्सी बुक करनी है",
+    "टैक्सी बुक करो",
+    "मुझे कैब चाहिए",
+    "गाड़ी बुक करनी है",
+    "எனக்கு டாக்ஸி புக் பண்ணனும்",
+    "டாக்ஸி வேண்டும்",
+    "ஒரு கார் புக் பண்ணுங்க"
+  ],
+  "steps": [
+    {
+      "id": "choose_app",
+      "kind": "choose_app",
+      "resource_id": "",
+      "instruction": "Which app would you like to use?",
+      "instructions": {
+        "hi-IN": "आप कौन सा ऐप इस्तेमाल करना चाहेंगे?",
+        "ta-IN": "எந்த ஆப்பைப் பயன்படுத்த விரும்புகிறீர்கள்?"
+      },
+      "expects_value": false,
+      "highlight": { "shape": "rect", "pulse": true }
+    },
+    {
+      "id": "destination",
+      "resource_id": "",
+      "text_any": [
+        "Where to",
+        "Where to?",
+        "Enter destination",
+        "Drop location",
+        "Enter drop",
+        "Search destination",
+        "Where are you going"
+      ],
+      "instruction": "Tap here and type where you want to go.",
+      "instructions": {
+        "hi-IN": "यहाँ दबाइए और लिखिए आपको कहाँ जाना है।",
+        "ta-IN": "இங்கே தட்டி, நீங்கள் எங்கு செல்ல வேண்டும் என்பதைத் தட்டச்சு செய்யுங்கள்."
+      },
+      "expects_value": true,
+      "highlight": { "shape": "rect", "pulse": true }
+    },
+    {
+      "id": "pick_ride",
+      "resource_id": "",
+      "text_any": [
+        "Confirm",
+        "Book",
+        "Request",
+        "Choose",
+        "Select",
+        "Continue"
+      ],
+      "instruction": "Now choose your ride and confirm it here.",
+      "instructions": {
+        "hi-IN": "अब अपनी सवारी चुनिए और यहाँ पक्का कीजिए।",
+        "ta-IN": "இப்போது உங்கள் பயணத்தைத் தேர்வுசெய்து இங்கே உறுதிசெய்யுங்கள்."
+      },
+      "expects_value": false,
+      "highlight": { "shape": "rect", "pulse": true }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScreenSaathi</string>
+    <string name="demo_title">Pay Electricity Bill</string>
+    <string name="accessibility_service_label">ScreenSaathi screen reader</string>
+    <string name="accessibility_service_description">Lets ScreenSaathi see which field you are on so it can point at the right one and guide you through the task.</string>
+</resources>
