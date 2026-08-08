@@ -41,6 +41,7 @@
         "hi-IN": "बिल भरने के लिए यह बटन दबाइए।"
       },
       "expects_value": false,
+      "irreversible": true,
       "highlight": { "shape": "rect", "pulse": true }
     }
   ]

@@ -49,6 +49,15 @@ data class TaskStep(
     val expectPackage: String = "",
     val actionType: String = "guide",
     val actionPayload: String = "",
+    /**
+     * This step commits something the user cannot take back — paying, sending,
+     * confirming.
+     *
+     * Guarded by [com.screensaathi.session.SafetyGuard]: the planner may not
+     * jump here while earlier steps are still blank. Without it, "how do I
+     * start" on an empty form could put the ring on Pay Bill.
+     */
+    val irreversible: Boolean = false,
 ) {
     /**
      * The step's wording in [language] if the DSL carries it, otherwise the
