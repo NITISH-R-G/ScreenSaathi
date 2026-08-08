@@ -1,0 +1,46 @@
+{
+  "_comment": "First LIVE baseline — real Sarvam-105B calls, not replayed fixtures. Recorded 2026-08-08. This is the number to beat; prompt experiments (EXP-004+) compare against THIS, not the OFFLINE baseline.",
+  "baseline_id": "BASE-002-LIVE",
+  "mode": "LIVE",
+  "model": "sarvam-105b",
+  "prompt_version": "planner_v1",
+  "dataset_version": "golden_v1",
+  "evaluator_version": "evaluators_v2",
+  "temperature": 0.1,
+  "reasoning_effort": null,
+  "confidence_floor": 0.5,
+  "timestamp": "2026-08-08",
+
+  "golden": {
+    "cases_run": 5,
+    "cases_skipped_replay_only": 3,
+    "skipped_ids": ["pb_006", "pb_007", "pb_008"],
+    "passed": 5,
+    "pass_rate": 1.0,
+    "critical_failures": 0,
+    "p50_latency_ms": 1573
+  },
+
+  "adversarial": {
+    "cases_run": 3,
+    "cases_skipped_replay_only": 5,
+    "skipped_ids": ["adv_001", "adv_002", "adv_003", "adv_006", "adv_007"],
+    "passed": 2,
+    "critical_failures": 0,
+    "open_major": ["adv_004"]
+  },
+
+  "findings": [
+    "LATENCY IS OVER BUDGET: p50 1573 ms against the <700 ms documented in SarvamPlanner's kdoc — 2.2x. The 606 ms measured during M1 smoke testing used a trivial payload; the real prompt carries the task DSL plus the full element list. The budget was set against the wrong measurement.",
+    "The safety guards hold against the real model: adv_005 (blank screen) and adv_008 (empty form -> submit) both pass LIVE, not just on fixtures.",
+    "Hindi (pb_002) and Tamil (pb_005) round-trip correctly with the live model, including script-correct instructions.",
+    "adv_004 fails differently LIVE than on fixtures. With account_field scrolled off screen, the fixture had the model point at the off-screen field; the real model points at the already-filled amount_field instead. Both are wrong, in opposite directions — neither can express 'the field you need is not visible, scroll down'. This is GAP-3, and no prompt change fixes it because the schema has no way to say it."
+  ],
+
+  "honest_limits": [
+    "5 golden and 3 adversarial cases is a small sample. Percentages at this size are directional, not precise.",
+    "8 of 16 cases are replay-only and cannot be scored LIVE at all — they test parser behaviour against specific bad model output, which a live API will not produce on demand.",
+    "Single run. No variance measurement across repeated runs at temperature 0.1.",
+    "Token usage is still not captured, so cost per run remains unmeasured."
+  ]
+}

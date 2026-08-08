@@ -9,6 +9,7 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
 import com.screensaathi.AppLauncher
+import com.screensaathi.device.DeviceContextProvider
 import androidx.core.content.ContextCompat
 import com.screensaathi.ScreenReaderService
 import com.screensaathi.overlay.HighlightBounds
@@ -465,13 +466,51 @@ class SessionController(
                 return
             }
             
+            // The open-ended path can tap, type and launch apps. Until now the
+            // only gate was `plan != null` above, so a confident plan acted
+            // unconditionally. Validate against the screen BEFORE building the
+            // step, and degrade to `guide` when the plan cannot be justified —
+            // the assistant still points and speaks, it just does not act.
+            val targetResolves = snap.boundsForResourceId(plan.targetResourceId) != null ||
+                (plan.targetText.isNotEmpty() && snap.boundsForText(listOf(plan.targetText)) != null)
+            val verdict = SafetyGuard.validateOpenEndedAction(
+                userRequest = intent,
+                actionType = plan.actionType,
+                targetResourceId = plan.targetResourceId,
+                targetText = plan.targetText,
+                actionPayload = plan.actionPayload,
+                elementCount = snap.elements.size,
+                settled = snap.settled,
+                targetResolves = targetResolves,
+            )
+            // A launch needs authorisation as well as validity. The evaluator
+            // caught "find an app for booking a cab" being answered with a
+            // confident launch of Uber on a phone that also had Ola: a valid
+            // target, but not one the user chose. Naming no app authorises no
+            // launch, which also covers content requests ("find my downloaded
+            // PDF") — opening Files is not finding the file.
+            val launchVerdict = if (plan.actionType == "launch_app") {
+                SafetyGuard.validateLaunchAuthorization(
+                    userRequest = intent,
+                    resolution = DeviceContextProvider.snapshot(context)
+                        .resolveApp(plan.actionPayload),
+                )
+            } else {
+                SafetyGuard.Verdict.Allow
+            }
+
+            val blockedReason = (verdict as? SafetyGuard.Verdict.Block)?.reason
+                ?: (launchVerdict as? SafetyGuard.Verdict.Block)?.reason
+            val safeActionType = if (blockedReason != null) "guide" else plan.actionType
+
             // Create a single step guided task so we can reuse the presentation logic
             val openEndedStep = TaskStep(
                 id = "open_ended_step",
                 resourceId = plan.targetResourceId,
                 instruction = plan.instruction,
                 textAny = if (plan.targetText.isNotEmpty()) listOf(plan.targetText) else emptyList(),
-                actionType = plan.actionType
+                actionType = safeActionType,
+                actionPayload = plan.actionPayload,
             )
             val newTask = GuidedTask(1, "open_ended", intent, emptyList(), listOf(openEndedStep))
             val e = StepEngine(newTask)
@@ -483,6 +522,7 @@ class SessionController(
                     wantResourceId = plan.targetResourceId.ifEmpty { "text:${plan.targetText}" },
                     planMs = planMs, confidence = plan.confidence,
                     language = plan.language,
+                    note = blockedReason?.let { "action blocked -> guide: $it" },
                 )
             }
             presentCurrentStep(e, turn, speak = true)
@@ -605,8 +645,23 @@ class SessionController(
             } else if (step.actionType == "launch_app") {
                 bg.postDelayed({
                     if (!isCurrent(turn) || stopped) return@postDelayed
-                    AppLauncher.launchApp(context, step.actionPayload)
-                    
+                    // The boolean used to be discarded, so a launch that never
+                    // happened was announced as if it had — Android package
+                    // visibility hides most apps from us, so this is the common
+                    // case, not the rare one. Tell the truth and stop, rather
+                    // than auto-continuing into a workflow that never started.
+                    val launched = AppLauncher.launchApp(context, step.actionPayload)
+                    if (!launched) {
+                        publishDebug(turn) {
+                            it.copy(note = "launch failed (not resolvable): ${step.actionPayload}")
+                        }
+                        val msg = Phrases.get(Phrases.Key.APP_WONT_OPEN, lastLanguage)
+                        renderIfCurrent(turn, OverlayCommand(PillState.ERROR, expanded = true,
+                            instruction = msg.text, language = msg.language, highlight = null))
+                        speech.post { speak(msg, turn) }
+                        return@postDelayed
+                    }
+
                     bg.postDelayed({
                         if (!isCurrent(turn) || stopped) return@postDelayed
                         onNextTapped()

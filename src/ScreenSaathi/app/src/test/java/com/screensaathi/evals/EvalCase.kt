@@ -35,6 +35,16 @@ data class EvalCase(
      * not captured production traffic. Marked synthetic in the dataset.
      */
     val recordedResponse: String?,
+    /**
+     * This case can only be scored by replaying its recorded response.
+     *
+     * Its expectation describes how the parser handles a *specific bad model
+     * output* — a malformed envelope, an invented step, a mislabelled language,
+     * an empty instruction. In LIVE mode the fixture is discarded and the real
+     * API answers normally, so the expectation no longer describes anything and
+     * scoring it produces a false failure. LIVE skips these.
+     */
+    val replayOnly: Boolean,
 ) {
     data class Expected(
         /** Any of these steps counts as correct. Empty = no step expectation. */
@@ -98,6 +108,9 @@ data class EvalCase(
                 difficulty = o.optString("difficulty", "unknown"),
                 failureCategory = o.optString("failure_category", "OTHER"),
                 recordedResponse = recordedResponse(o),
+                // A rejection case is replay-only by definition: you cannot ask
+                // a live API to return a malformed envelope on demand.
+                replayOnly = o.optBoolean("replay_only", exp.optBoolean("expect_rejection", false)),
             )
         }
 
