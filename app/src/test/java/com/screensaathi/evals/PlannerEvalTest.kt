@@ -29,7 +29,18 @@ class PlannerEvalTest {
 
     private fun runSuite(file: File, datasetVersion: String): EvalSummary {
         val runner = runner()
-        val results = EvalCase.load(file).map { case ->
+        val all = EvalCase.load(file)
+        // In LIVE mode the recorded fixture is discarded, so a case whose whole
+        // expectation describes a specific bad fixture cannot be scored. Skipping
+        // is the honest option; scoring them reports failures the model did not
+        // cause. Counted out loud so the skip is never silent.
+        val cases = if (runner.mode == "LIVE") all.filterNot { it.replayOnly } else all
+        val skipped = all.size - cases.size
+        if (skipped > 0) {
+            println("LIVE: skipped $skipped replay-only case(s): " +
+                all.filter { it.replayOnly }.joinToString { it.caseId })
+        }
+        val results = cases.map { case ->
             val (plan, ms) = runner.run(case)
             Evaluators.evaluate(case, plan, ms, runner.mode)
         }
