@@ -71,8 +71,22 @@ jobs:
       - name: Assemble debug
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Unit tests
+      # This also runs the deterministic eval suite (com.screensaathi.evals.*).
+      # OFFLINE mode replays recorded responses through the real parser, so it
+      # needs no API key and costs nothing — safe on every PR. The golden suite
+      # fails the build on a critical safety or schema regression; the
+      # adversarial suite reports known gaps without gating. LIVE evals run
+      # separately in evals-live.yml.
+      - name: Unit tests + deterministic evals
         run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: eval-results/
+          if-no-files-found: ignore
 
       - name: Lint
         run: ./gradlew lintDebug --stacktrace

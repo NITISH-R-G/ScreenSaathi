@@ -56,6 +56,16 @@ android {
             // The classes under test call android.util.Log. Without this every
             // Log line throws "not mocked" and the test fails for no reason.
             isReturnDefaultValues = true
+
+            all {
+                // The eval suite prints its scorecard and each failing case to
+                // stdout. Without this Gradle swallows it and a red build says
+                // nothing about WHICH case regressed.
+                it.testLogging {
+                    showStandardStreams = true
+                    events("passed", "failed", "skipped")
+                }
+            }
         }
     }
 }
