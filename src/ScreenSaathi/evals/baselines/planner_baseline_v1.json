@@ -1,0 +1,23 @@
+{
+  "_comment": "Recorded from a real OFFLINE run on 2026-08-08. Every experiment compares against this. Do not hand-edit — regenerate from eval-results/latest.json and record why in docs/evals/EXPERIMENTS.md.",
+  "baseline_id": "BASE-001",
+  "mode": "OFFLINE",
+  "model": "sarvam-105b",
+  "prompt_version": "planner_v1",
+  "dataset_version": "golden_v1",
+  "evaluator_version": "evaluators_v1",
+  "temperature": 0.1,
+  "reasoning_effort": null,
+  "confidence_floor": 0.5,
+  "timestamp": "2026-08-08",
+  "total_cases": 8,
+  "passed_cases": 8,
+  "pass_rate": 1.0,
+  "critical_failures": 0,
+  "p50_latency_ms": 0,
+  "notes": [
+    "OFFLINE replays hand-authored fixtures through the production parser. 100% means the parse/policy guards hold, NOT that the assistant is good.",
+    "No LIVE baseline recorded yet — that requires SARVAM_API_KEY and is the first thing to establish before any prompt experiment.",
+    "p50 latency is 0 ms because OFFLINE measures parse time only."
+  ]
+}

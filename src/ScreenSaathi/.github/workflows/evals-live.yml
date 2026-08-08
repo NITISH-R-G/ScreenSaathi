@@ -1,0 +1,61 @@
+# LIVE evaluation suite — calls Sarvam for real and therefore costs money.
+#
+# Deliberately NOT on push/pull_request. The deterministic suite already gates
+# every PR for free in android.yml; running paid model calls on every commit
+# would cost more than it tells us. This is manual, plus a weekly drift check.
+name: Evals (LIVE)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Monday 03:00 UTC — catches model-side drift without a daily bill.
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  live-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: sdkmanager --install "platforms;android-36.1" "build-tools;36.1.0"
+
+      # Skips rather than fails when the secret is absent, so a fork or a repo
+      # without the key does not show a permanently red scheduled job.
+      - name: Check for key
+        id: key
+        run: |
+          if [ -z "${{ secrets.SARVAM_API_KEY }}" ]; then
+            echo "::warning::SARVAM_API_KEY not set — skipping LIVE evals."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run LIVE evals
+        if: steps.key.outputs.present == 'true'
+        env:
+          SCREENSAATHI_EVAL_LIVE: '1'
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
+        run: ./gradlew :app:testDebugUnitTest --tests "com.screensaathi.evals.*" --rerun-tasks --stacktrace
+
+      - name: Upload LIVE eval report
+        if: always() && steps.key.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-live
+          path: eval-results/
+          if-no-files-found: ignore
