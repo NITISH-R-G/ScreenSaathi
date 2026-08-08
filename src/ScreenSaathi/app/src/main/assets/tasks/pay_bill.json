@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "id": "pay_bill",
+  "title": "Pay Electricity Bill",
+  "utterances": [
+    "help me pay this bill",
+    "pay my electricity bill",
+    "i want to pay the bill",
+    "bijli ka bill bharna hai",
+    "mujhe bill pay karna hai",
+    "बिजली का बिल भरना है",
+    "मुझे बिल भरना है",
+    "बिल पे करना है"
+  ],
+  "steps": [
+    {
+      "id": "amount",
+      "resource_id": "amount_field",
+      "instruction": "Enter the bill amount in this box.",
+      "instructions": {
+        "hi-IN": "इस बॉक्स में बिल की रकम भरिए।"
+      },
+      "expects_value": true,
+      "highlight": { "shape": "rect", "pulse": true }
+    },
+    {
+      "id": "account",
+      "resource_id": "account_field",
+      "instruction": "Now type your account number here.",
+      "instructions": {
+        "hi-IN": "अब यहाँ अपना अकाउंट नंबर लिखिए।"
+      },
+      "expects_value": true,
+      "highlight": { "shape": "rect", "pulse": true }
+    },
+    {
+      "id": "submit",
+      "resource_id": "submit_button",
+      "instruction": "Tap this button to pay the bill.",
+      "instructions": {
+        "hi-IN": "बिल भरने के लिए यह बटन दबाइए।"
+      },
+      "expects_value": false,
+      "irreversible": true,
+      "highlight": { "shape": "rect", "pulse": true }
+    }
+  ]
+}

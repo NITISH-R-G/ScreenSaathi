@@ -1,0 +1,28 @@
+# Secrets and machine-local config.
+# local.properties holds the Sarvam API key and the SDK path. It must NEVER be
+# committed — the key reaches the app through BuildConfig at build time instead.
+local.properties
+*.keystore
+*.jks
+
+# Build output
+build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+
+# Generated smoke-test artifacts
+scripts/*.wav
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Generated eval reports. The committed artefact is the baseline in
+# evals/baselines/, not each run's output.
+eval-results/

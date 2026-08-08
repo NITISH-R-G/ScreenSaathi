@@ -4,36 +4,41 @@
 > your Ideation-Phase submission — no separate form. Keep it living; update it as
 > your design evolves.
 
-- **Team name:** _<!-- your team name -->_
-- **Team code:** _<!-- e.g. TEAM-000 (from your organizers) -->_
-- **Track:** _<!-- AI for Good Health & Well-being / Zero Hunger & Economic Growth / Sustainable Cities & Climate Action / Strong Institutions -->_
-- **Members:** _<!-- Name (GitHub @handle), Name (@handle), … -->_
+- **Team name:** CODESTREAK
+- **Team code:** TEAM-018
+- **Track:** AI for Strong Institutions
+- **Members:** Aswin R (@Aswin-Times), Nitish R.G. (@NITISH-R-G), Padmanabhan Sureshbabu (@padmanabhansb08), Sonika P (@Sonika-275)
 
 ## 1. Problem
-_What problem are you solving, and why does it matter? Who feels it today?_
+Elderly and first-time Android users struggle with digital interfaces, especially for critical tasks like booking an online consultation through the eSanjeevani OPD Android app. Traditional screen readers or chatbots do not adequately solve the problem of visual orientation and contextual guidance in complex UIs.
 
 ## 2. Who it helps
-_The specific people or community that benefits, and how you'll reach them._
+Elderly and first-time smartphone users, particularly those navigating the eSanjeevani OPD Android app. We reach them by providing an accessible, on-device floating copilot that guides them in their native language (Hindi, Tamil, or English).
 
 ## 3. Proposed solution
-_Your approach in a few sentences — what you'll build and how it addresses the problem._
+ScreenSaathi is an AI-powered accessibility copilot. It observes the screen via Android Accessibility Service, uses a vision-language model to understand the booking flow, highlights exactly where to tap with a blooming ring cursor, and explains the next step audibly in the user's preferred language.
 
 ## 4. High-level architecture
-_Key components and how data flows. A diagram is welcome (drop an image in `/docs`)._
+An Android Accessibility Service captures a read-only snapshot of the screen and user voice input. The Audio is processed by Saaras STT for transcription and language detection. The planner model determines the next target field and instruction. The OverlayService then flies a cursor to the field while Bulbul TTS narrates the instruction. A deterministic StepEngine handles offline fallbacks.
 
 ```
-<!-- e.g. Mobile PWA → Vercel function → Gemini API (OCR) → Postgres
-             ↘ Cloud Run cron for the nightly sync -->
+User Voice → STT (Saaras) → Planner Model (Vision/Language)
+                                  ↑
+Screen Snapshot (Accessibility) ──┘
+                                  ↓
+                  Overlay Service (Visual Highlight) & TTS (Audio Instruction)
 ```
 
 ## 5. Tech stack
-_Languages, frameworks, and the Google/AI tools you plan to use (Gemini API, Cloud Run, Firebase, etc.)._
+- **Language**: Kotlin
+- **Frameworks**: Android Accessibility Service, FastAPI (Backend)
+- **AI/ML**: Gemini Vision / OpenAI Vision, Saaras STT, Sarvam-105B planner, Bulbul TTS
+- **Backend/Data**: Firebase, PostgreSQL
 
 ## 6. Milestones to hackathon day
-_A rough plan from now to Aug 8–9._
-
-- [ ] …
-- [ ] …
+- [ ] Integrate existing ScreenSaathi Android project into the hackathon repository.
+- [ ] Refine the eSanjeevani OPD booking flow tasks.
+- [ ] Ensure offline StepEngine fallback works robustly.
 
 ## 7. Open questions / help needed
-_Anything you're unsure about or want mentor input on._
+None currently.

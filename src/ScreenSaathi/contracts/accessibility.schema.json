@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "screensaathi/contracts/accessibility.schema.json",
+  "title": "Accessibility snapshot contract v1 — FROZEN at M1",
+  "description": "What ScreenReaderService produces and the planner/step engine consume. One snapshot of the current screen: a flat indexed list of elements, own-package filtered. FROZEN interface between the accessibility layer and everything above it.",
+  "type": "object",
+  "required": ["package_name", "settled", "elements"],
+  "additionalProperties": false,
+  "properties": {
+    "package_name": {
+      "type": "string",
+      "description": "Foreground app package at snapshot time."
+    },
+    "settled": {
+      "type": "boolean",
+      "description": "True when the screen has stopped mutating (debounced idle). The step engine waits for this before resolving a highlight, so the pointer never lands mid-transition."
+    },
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "resource_id", "bounds"],
+        "additionalProperties": false,
+        "properties": {
+          "index": { "type": "integer", "minimum": 0 },
+          "resource_id": {
+            "type": "string",
+            "description": "Bare view id without package prefix, e.g. amount_field. Empty string if the node has none."
+          },
+          "text": { "type": "string" },
+          "class_name": { "type": "string" },
+          "bounds": {
+            "type": "object",
+            "required": ["left", "top", "right", "bottom"],
+            "additionalProperties": false,
+            "properties": {
+              "left": { "type": "integer" },
+              "top": { "type": "integer" },
+              "right": { "type": "integer" },
+              "bottom": { "type": "integer" }
+            },
+            "description": "Screen-pixel bounds. The overlay draws the highlight here directly."
+          },
+          "editable": { "type": "boolean" },
+          "clickable": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

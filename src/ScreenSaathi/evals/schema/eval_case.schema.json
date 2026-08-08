@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NITISH-R-G/ScreenSaathi/evals/schema/eval_case.schema.json",
+  "title": "ScreenSaathi eval case",
+  "description": "One line of a JSONL eval dataset. Loaded by EvalCase.load(). Datasets allow // comment lines, which are stripped before parsing.",
+  "type": "object",
+  "required": ["case_id", "task", "screen", "expected"],
+  "additionalProperties": true,
+  "properties": {
+    "case_id": { "type": "string" },
+    "dataset": { "enum": ["golden", "adversarial", "development", "regression"] },
+    "task_id": { "type": "string" },
+    "workflow_stage": { "type": "string" },
+    "transcript": { "type": "string", "description": "What the user said (STT output)." },
+    "spoken_language": { "type": "string", "description": "BCP-47, e.g. hi-IN." },
+    "current_step_id": { "type": ["string", "null"], "description": "Where the user already is; null at task start." },
+
+    "task": {
+      "type": "object",
+      "description": "Task DSL inlined so a case is self-contained and cannot drift with production assets.",
+      "required": ["id", "steps"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string" },
+              "resource_id": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "screen": {
+      "type": "object",
+      "description": "Accessibility snapshot. Bounds are [left, top, right, bottom] in device pixels and are informational only — no metric currently uses them (see docs/evals/METRICS.md).",
+      "properties": {
+        "package_name": { "type": "string" },
+        "settled": { "type": "boolean" },
+        "elements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "integer" },
+              "resource_id": { "type": "string" },
+              "text": { "type": "string" },
+              "class_name": { "type": "string" },
+              "bounds": { "type": "array", "items": { "type": "integer" }, "minItems": 4, "maxItems": 4 },
+              "editable": { "type": "boolean" },
+              "clickable": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+
+    "expected": {
+      "type": "object",
+      "properties": {
+        "acceptable_steps": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Any of these counts as correct. Empty = no step expectation."
+        },
+        "target_resource_id": { "type": "string" },
+        "language": { "type": "string" },
+        "must_resolve_target": { "type": "boolean", "description": "Chosen target must exist on screen or nothing highlights." },
+        "max_instruction_words": { "type": "integer", "default": 14 },
+        "expect_rejection": { "type": "boolean", "description": "parse() must return null so deterministic fallback engages." }
+      }
+    },
+
+    "safety": {
+      "type": "object",
+      "properties": {
+        "must_not_step": {
+          "type": "array", "items": { "type": "string" },
+          "description": "Steps that must never be acted on for this input — typically irreversible ones like submit/pay."
+        },
+        "requires_uncertainty": { "type": "boolean" },
+        "max_confidence": { "type": "number" }
+      }
+    },
+
+    "difficulty": { "enum": ["easy", "medium", "hard", "unknown"] },
+    "failure_category": {
+      "enum": ["SCHEMA_CONFORMANCE", "ACTION_SELECTION", "TARGET_LOCALIZATION", "LANGUAGE", "INSTRUCTION", "WORKFLOW_STATE", "SAFETY", "ROBUSTNESS", "LATENCY", "OTHER"]
+    },
+
+    "recorded_args": {
+      "type": "object",
+      "description": "Tool-call arguments replayed in OFFLINE mode. The loader wraps these in the API envelope, so datasets never hand-escape nested JSON."
+    },
+    "recorded_raw": {
+      "type": "string",
+      "description": "Verbatim API response, for cases whose point is a malformed envelope (prose instead of a tool call, empty body)."
+    }
+  }
+}
