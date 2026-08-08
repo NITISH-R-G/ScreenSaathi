@@ -120,6 +120,7 @@ class TaskRepository private constructor(val tasks: List<GuidedTask>) {
                         instruction = s.getString("instruction"),
                         instructions = parseInstructions(s.optJSONObject("instructions")),
                         expectsValue = s.optBoolean("expects_value", false),
+                        irreversible = s.optBoolean("irreversible", false),
                         kind = if (s.optString("kind") == "choose_app") {
                             StepKind.CHOOSE_APP
                         } else {

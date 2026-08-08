@@ -376,7 +376,28 @@ class SessionController(
 
         if (!isCurrent(turn)) return
 
-        if (plan != null && plan.confidence >= CONFIDENCE_FLOOR && e.jumpTo(plan.step)) {
+        // Two refusals the confidence floor cannot make on its own. Evaluated
+        // before jumpTo() so a blocked plan never moves the user.
+        // See docs/evals/FAILURES.md GAP-1, GAP-2.
+        val blockedReason: String? = plan?.let { p ->
+            when {
+                SafetyGuard.blocksIrreversibleJump(task, p.step) { rid ->
+                    snap.elementForResourceId(rid)?.text
+                } -> "blocked: irreversible step with earlier fields still blank"
+
+                SafetyGuard.blocksUngroundedPlan(
+                    elementCount = snap.elements.size,
+                    targetResolves = snap.boundsForResourceId(p.targetResourceId) != null ||
+                        snap.boundsForText(task.stepById(p.step)?.textAny ?: emptyList()) != null,
+                ) -> "blocked: screen shows no evidence for this plan"
+
+                else -> null
+            }
+        }
+
+        if (plan != null && blockedReason == null &&
+            plan.confidence >= CONFIDENCE_FLOOR && e.jumpTo(plan.step)
+        ) {
             publishDebug(turn) {
                 it.copy(
                     intent = plan.intent, step = plan.step,
@@ -393,7 +414,11 @@ class SessionController(
                     intent = task.id, step = e.currentStep.id,
                     wantResourceId = e.currentStep.resourceId,
                     planMs = planMs, confidence = plan?.confidence ?: -1.0,
-                    note = if (plan == null) "planner unavailable" else "below confidence floor",
+                    note = when {
+                        plan == null -> "planner unavailable"
+                        blockedReason != null -> blockedReason
+                        else -> "below confidence floor"
+                    },
                 )
             }
             presentCurrentStep(e, turn, speak = true)
