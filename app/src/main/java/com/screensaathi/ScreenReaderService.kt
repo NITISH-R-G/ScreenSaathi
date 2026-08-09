@@ -44,6 +44,14 @@ class ScreenReaderService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 lastEventUptime = SystemClock.uptimeMillis()
                 SessionController.instance?.onWindowStateChanged()
+                OverlayService.onSystemWindowsChanged()
+            }
+
+            // The keyboard opening or closing arrives here, not as an inset on
+            // our own non-focusable window. This is what lets the assistant get
+            // out of the IME's way.
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED -> {
+                OverlayService.onSystemWindowsChanged()
             }
 
             // The user physically tapped something. That — not a timer, and not
@@ -81,6 +89,27 @@ class ScreenReaderService : AccessibilityService() {
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         if (instance === this) instance = null
         return super.onUnbind(intent)
+    }
+
+    /**
+     * Top edge of the on-screen keyboard in screen pixels, or 0 when no IME is
+     * showing.
+     *
+     * Read from the accessibility window list rather than from WindowInsets:
+     * the assistant overlay is FLAG_NOT_FOCUSABLE, so the IME is attached to
+     * the *app's* window and never reports an ime() inset to ours — asking our
+     * own window would always answer "no keyboard". The accessibility service
+     * sees every window on the display regardless of who has focus, which is
+     * the only vantage point that can answer this for an overlay.
+     */
+    fun imeTopPx(): Int = try {
+        windows
+            .filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+            .minOfOrNull { w -> Rect().also { w.getBoundsInScreen(it) }.top }
+            ?: 0
+    } catch (e: Exception) {
+        // The window list throws while the display is changing.
+        0
     }
 
     /** True when no UI change events have arrived for [quietMs]. */

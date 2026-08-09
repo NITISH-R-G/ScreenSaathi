@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -21,6 +22,7 @@ import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import com.screensaathi.overlay.AssistantUiState
 import com.screensaathi.overlay.HighlightView
 import com.screensaathi.overlay.OverlayCommand
 import com.screensaathi.overlay.PillLabels
@@ -61,6 +63,20 @@ class OverlayService : Service() {
     private var voiceActive = false
     private var levelPump: Runnable? = null
 
+    /** Single source of truth for presentation — see AssistantUiState. */
+    private var uiState: AssistantUiState = AssistantUiState.COLLAPSED
+    private var stateBeforeDrag: AssistantUiState = AssistantUiState.COLLAPSED
+
+    /** The window params we own, so drag/placement writes one object. */
+    private var pillParams: WindowManager.LayoutParams? = null
+
+    /** Where the *user* put it. The keyboard may move the live window off
+     *  this temporarily; this is what it returns to. */
+    private var userX = 0
+    private var userY = 0
+    private var dockAnimator: android.animation.ValueAnimator? = null
+    private lateinit var minimizedDot: View
+
     private lateinit var controller: SessionController
 
     override fun onCreate() {
@@ -80,6 +96,7 @@ class OverlayService : Service() {
         if (windowsAdded) return
         windowsAdded = true
 
+        live = this
         addHighlightWindow()
         addPillWindow()
         controller = SessionController(
@@ -151,6 +168,8 @@ class OverlayService : Service() {
         micButton = pillRoot.findViewById(R.id.mic_button)
         transportRow = pillRoot.findViewById(R.id.transport_row)
         waveform = pillRoot.findViewById(R.id.waveform)
+        minimizedDot = pillRoot.findViewById(R.id.minimized_dot)
+        minimizedDot.setOnClickListener { setMinimized(false) }
         languageChip = pillRoot.findViewById(R.id.language_chip)
         debugPanel = pillRoot.findViewById(R.id.debug_panel)
         choiceRow = pillRoot.findViewById(R.id.choice_row)
@@ -197,12 +216,217 @@ class OverlayService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         )
-        // Anchored at the bottom so the expanded card grows upward and never
-        // covers the form fields it is pointing at (the highlight must stay
-        // visible — that is the whole product).
-        lp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        lp.y = dp(28)
+        // TOP|START with explicit x/y, not BOTTOM|CENTER. Gravity-relative
+        // coordinates make dragging ambiguous — the same p.x means a different
+        // screen position depending on which gravity bits are set, which is
+        // how a dragged bubble ends up somewhere other than where the finger
+        // released it. One absolute anchor keeps the window position, the
+        // rendered pixels and the touch region describing the same thing.
+        lp.gravity = Gravity.TOP or Gravity.START
+        pillParams = lp
         wm.addView(pillRoot, lp)
+
+        // Position once the view has been measured — the safe area depends on
+        // the window's real height, which is not known until layout.
+        pillRoot.post { restToDefaultPosition() }
+        installDragHandling()
+        installInsetHandling()
+    }
+
+    /** Usable area: the display minus system bars, cutout and (when up) the IME. */
+    private fun safeArea(): Rect {
+        val metrics = resources.displayMetrics
+        val full = Rect(0, 0, metrics.widthPixels, metrics.heightPixels)
+        val insets = pillRoot.rootWindowInsets ?: return full
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val t = insets.getInsets(
+                android.view.WindowInsets.Type.systemBars() or
+                    android.view.WindowInsets.Type.displayCutout(),
+            )
+            Rect(full.left + t.left, full.top + t.top, full.right - t.right, full.bottom - t.bottom)
+        } else {
+            @Suppress("DEPRECATION")
+            Rect(
+                full.left + insets.systemWindowInsetLeft,
+                full.top + insets.systemWindowInsetTop,
+                full.right - insets.systemWindowInsetRight,
+                full.bottom - insets.systemWindowInsetBottom,
+            )
+        }
+    }
+
+    /**
+     * Top edge of the keyboard in screen px, or 0 when it is closed.
+     *
+     * Comes from the accessibility service, not this window's insets — see
+     * ScreenReaderService.imeTopPx(). A FLAG_NOT_FOCUSABLE overlay is never
+     * the IME's target, so its own rootWindowInsets report no keyboard even
+     * while one is plainly covering half the screen.
+     */
+    private fun imeTop(): Int = ScreenReaderService.instance?.imeTopPx() ?: 0
+
+    private fun windowSize(): Pair<Int, Int> {
+        val w = if (pillRoot.width > 0) pillRoot.width else dp(PILL_WIDTH_DP)
+        val h = if (pillRoot.height > 0) pillRoot.height else dp(96)
+        return w to h
+    }
+
+    /** Bottom-centre, the resting place before the user moves it. */
+    private fun restToDefaultPosition() {
+        val (w, h) = windowSize()
+        val safe = safeArea()
+        userX = safe.left + (safe.width() - w) / 2
+        userY = safe.bottom - h - dp(28)
+        applyPosition(userX, userY, respectKeyboard = true)
+    }
+
+    /**
+     * Write a position to the window, clamped into the safe area and lifted
+     * clear of the keyboard if it would otherwise sit under it.
+     *
+     * [userX]/[userY] hold what the *user* chose; the keyboard may push the
+     * live window off that temporarily, and it returns when the IME closes.
+     */
+    private fun applyPosition(x: Int, y: Int, respectKeyboard: Boolean) {
+        val lp = pillParams ?: return
+        val (w, h) = windowSize()
+        val safe = safeArea()
+        var (cx, cy) = com.screensaathi.overlay.AssistantPlacement.clamp(x, y, w, h, safe)
+        if (respectKeyboard) {
+            com.screensaathi.overlay.AssistantPlacement
+                .avoidKeyboard(cy, h, imeTop(), dp(12))
+                ?.let { lifted ->
+                    cy = com.screensaathi.overlay.AssistantPlacement
+                        .clamp(cx, lifted, w, h, safe).second
+                }
+        }
+        lp.x = cx
+        lp.y = cy
+        runCatching { wm.updateViewLayout(pillRoot, lp) }
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d(
+                TAG_UI,
+                "ASSISTANT_WINDOW x=${lp.x} y=${lp.y} width=$w height=$h " +
+                    "safe=${safe.toShortString()} imeTop=${imeTop()} state=$uiState",
+            )
+        }
+    }
+
+    /**
+     * Re-run placement when the insets change — keyboard opening or closing,
+     * rotation, a cutout coming into play. The user's chosen position is the
+     * input every time, so the assistant returns to it once the IME is gone
+     * rather than drifting upward with each successive keyboard.
+     */
+    private fun installInsetHandling() {
+        pillRoot.setOnApplyWindowInsetsListener { _, insets ->
+            pillRoot.post { applyPosition(userX, userY, respectKeyboard = true) }
+            insets
+        }
+    }
+
+    /**
+     * Drag the whole window, and tell a drag apart from a tap.
+     *
+     * The distinction is the point: without a slop threshold every attempt to
+     * move the assistant also opened the microphone. Below slop it is a tap
+     * (start listening); above it the window follows the finger and the tap is
+     * suppressed entirely.
+     */
+    private fun installDragHandling() {
+        val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
+        val listener = object : View.OnTouchListener {
+            private var downRawX = 0f
+            private var downRawY = 0f
+            private var startX = 0
+            private var startY = 0
+            private var moved = false
+
+            override fun onTouch(v: View, e: android.view.MotionEvent): Boolean {
+                val lp = pillParams ?: return false
+                when (e.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        downRawX = e.rawX; downRawY = e.rawY
+                        startX = lp.x; startY = lp.y
+                        moved = false
+                        if (BuildConfig.DEBUG) {
+                            val loc = IntArray(2)
+                            v.getLocationOnScreen(loc)
+                            android.util.Log.d(
+                                TAG_UI,
+                                "ASSISTANT_TOUCH rawX=${e.rawX.toInt()} rawY=${e.rawY.toInt()} " +
+                                    "insideWindow=true insideControl=[${loc[0]},${loc[1]}]" +
+                                    "[${loc[0] + v.width},${loc[1] + v.height}]",
+                            )
+                        }
+                        return false
+                    }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        val dx = (e.rawX - downRawX).toInt()
+                        val dy = (e.rawY - downRawY).toInt()
+                        if (!moved && (kotlin.math.abs(dx) > slop || kotlin.math.abs(dy) > slop)) {
+                            moved = true
+                            stateBeforeDrag = uiState
+                            uiState = AssistantUiState.DRAGGING
+                        }
+                        if (moved) {
+                            // Keyboard avoidance is suspended mid-drag: the
+                            // user is explicitly placing it, and fighting them
+                            // for the position reads as the window sticking.
+                            applyPosition(startX + dx, startY + dy, respectKeyboard = false)
+                        }
+                        return moved
+                    }
+                    android.view.MotionEvent.ACTION_UP,
+                    android.view.MotionEvent.ACTION_CANCEL -> {
+                        if (!moved) return false // let the click listener run
+                        val (w, _) = windowSize()
+                        val safe = safeArea()
+                        val snapped = com.screensaathi.overlay.AssistantPlacement
+                            .snapX(lp.x, w, safe, resources.displayMetrics.density)
+                        userX = snapped
+                        userY = lp.y
+                        uiState = stateBeforeDrag
+                        animateToX(snapped)
+                        return true
+                    }
+                }
+                return false
+            }
+        }
+        // Attached to the window root as well as the pill row. The row alone
+        // was not enough: it does not span the whole window (padding, and the
+        // card above it), so a grab that landed a few pixels outside it was
+        // never delivered to the drag listener at all and the assistant simply
+        // refused to move. The root always covers the window.
+        pillRoot.setOnTouchListener(listener)
+        pillRoot.findViewById<View>(R.id.pill_row).setOnTouchListener(listener)
+        cardBody.setOnTouchListener(listener)
+    }
+
+    /** Slide to the docked x rather than teleporting there on release. */
+    private fun animateToX(targetX: Int) {
+        val lp = pillParams ?: return
+        dockAnimator?.cancel()
+        dockAnimator = android.animation.ValueAnimator.ofInt(lp.x, targetX).apply {
+            duration = DOCK_MS
+            interpolator = android.view.animation.DecelerateInterpolator()
+            addUpdateListener { a ->
+                applyPosition(a.animatedValue as Int, userY, respectKeyboard = true)
+            }
+            start()
+        }
+    }
+
+    /** Park the assistant as a dot so the app underneath is usable. */
+    fun setMinimized(minimized: Boolean) {
+        if (minimized && uiState == AssistantUiState.MINIMIZED) return
+        uiState = if (minimized) AssistantUiState.MINIMIZED else AssistantUiState.COLLAPSED
+        cardBody.visibility = View.GONE
+        pillRoot.findViewById<View>(R.id.pill_row).visibility =
+            if (minimized) View.GONE else View.VISIBLE
+        minimizedDot.visibility = if (minimized) View.VISIBLE else View.GONE
+        pillRoot.post { applyPosition(userX, userY, respectKeyboard = true) }
     }
 
     /**
@@ -294,6 +518,21 @@ class OverlayService : Service() {
         val voiceActive = waveMode != com.screensaathi.overlay.VoiceWaveformView.Mode.IDLE
         waveform.setMode(waveMode)
         setVoiceActive(voiceActive)
+
+        // One assignment, derived from the command — not a set of booleans
+        // that can disagree. DRAGGING/MINIMIZED are user gestures and are not
+        // overwritten by a render, or the pill would jump back mid-drag.
+        if (uiState != AssistantUiState.DRAGGING && uiState != AssistantUiState.MINIMIZED) {
+            uiState = when (cmd.pillState) {
+                PillState.LISTENING -> AssistantUiState.LISTENING
+                PillState.THINKING -> AssistantUiState.THINKING
+                PillState.SPEAKING -> AssistantUiState.SPEAKING
+                PillState.GUIDING -> AssistantUiState.GUIDING
+                PillState.ERROR -> AssistantUiState.EXPANDED
+                PillState.IDLE -> if (cmd.expanded) AssistantUiState.EXPANDED
+                    else AssistantUiState.COLLAPSED
+            }
+        }
         // The pill's own label speaks the user's language too — an English
         // "Listening…" above a Hindi instruction breaks the illusion instantly.
         pillLabel.text = PillLabels.forState(cmd.pillState, cmd.language)
@@ -392,6 +631,7 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (live === this) live = null
         stopLevelPump()
         controller.dispose()
         runCatching { wm.removeView(highlightView) }
@@ -409,9 +649,23 @@ class OverlayService : Service() {
         /** Shared across any Service instance in this process — see onCreate(). */
         @Volatile private var windowsAdded = false
 
+        @Volatile private var live: OverlayService? = null
+
+        /**
+         * The system's window set changed — most importantly the keyboard
+         * appearing or disappearing. Re-runs placement so the assistant lifts
+         * clear of the IME and settles back afterwards.
+         */
+        fun onSystemWindowsChanged() {
+            val svc = live ?: return
+            svc.main.post { svc.applyPosition(svc.userX, svc.userY, respectKeyboard = true) }
+        }
+
         /** Fixed outer overlay width — see the LayoutParams comment. */
         private const val PILL_WIDTH_DP = 320
         private const val TRANSITION_MS = 220L
+        private const val DOCK_MS = 180L
+        private const val TAG_UI = "AssistantUI"
         /** ~30fps is plenty: the view smooths between samples itself. */
         private const val LEVEL_POLL_MS = 33L
 

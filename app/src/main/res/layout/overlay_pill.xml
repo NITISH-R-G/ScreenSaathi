@@ -164,6 +164,19 @@
             android:text="" />
     </LinearLayout>
 
+    <!-- Minimised presentation: a single dot. Shown only in MINIMIZED, where
+         the goal is the smallest possible touch footprint over the app the
+         user is actually trying to use. -->
+    <View
+        android:id="@+id/minimized_dot"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/mic_circle_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
     <!-- Pill row: always visible. Tap to expand/collapse. Stays at the bottom. -->
     <LinearLayout
         android:id="@+id/pill_row"
