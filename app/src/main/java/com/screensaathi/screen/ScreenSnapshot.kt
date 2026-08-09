@@ -23,8 +23,14 @@ data class ScreenSnapshot(
     val elements: List<ScreenElement>,
 ) {
     /** Live bounds for a step's resource_id, or null if not currently on screen. */
-    fun boundsForResourceId(resourceId: String): Rect? =
-        elements.firstOrNull { it.resourceId == resourceId }?.bounds
+    fun boundsForResourceId(resourceId: String): Rect? {
+        if (resourceId.isEmpty()) return null
+        val matches = elements.filter { it.resourceId == resourceId }
+        if (matches.isEmpty()) return null
+        // A label and the field behind it can share an id; point at the one the
+        // user can actually act on.
+        return (matches.firstOrNull { it.editable || it.clickable } ?: matches.first()).bounds
+    }
 
     /**
      * Bounds for a step that targets visible text rather than a view id.
@@ -39,12 +45,33 @@ data class ScreenSnapshot(
      * TextView and the EditText behind it.
      */
     fun boundsForText(candidates: List<String>): Rect? {
-        if (candidates.isEmpty()) return null
-        val matches = elements.filter { e ->
-            e.text.isNotEmpty() && candidates.any { e.text.contains(it, ignoreCase = true) }
+        val cleaned = candidates.map { it.trim() }.filter { it.isNotEmpty() }
+        if (cleaned.isEmpty()) return null
+
+        fun pick(matches: List<ScreenElement>): Rect? =
+            (matches.firstOrNull { it.editable || it.clickable } ?: matches.firstOrNull())?.bounds
+
+        // Exact label first: "Pay" must not resolve to "Payment history" while
+        // a button literally labelled "Pay" is on screen.
+        val exact = elements.filter { e ->
+            e.text.isNotEmpty() && cleaned.any { e.text.trim().equals(it, ignoreCase = true) }
         }
-        if (matches.isEmpty()) return null
-        return (matches.firstOrNull { it.editable || it.clickable } ?: matches.first()).bounds
+        if (exact.isNotEmpty()) return pick(exact)
+
+        // Then containment, in both directions — the model may say "Book
+        // Appointment" for a button reading "Book", or vice versa. Very short
+        // candidates are word-bounded so "OK" cannot match "BOOKING".
+        val loose = elements.filter { e ->
+            val et = e.text.trim()
+            et.isNotEmpty() && cleaned.any { c ->
+                if (c.length <= 3) {
+                    Regex("\b${Regex.escape(c)}\b", RegexOption.IGNORE_CASE).containsMatchIn(et)
+                } else {
+                    et.contains(c, ignoreCase = true) || c.contains(et, ignoreCase = true)
+                }
+            }
+        }
+        return if (loose.isNotEmpty()) pick(loose) else null
     }
 
     fun elementForResourceId(resourceId: String): ScreenElement? =
@@ -71,5 +98,23 @@ data class ScreenSnapshot(
 
     companion object {
         val EMPTY = ScreenSnapshot("", settled = false, elements = emptyList())
+    }
+
+    /**
+     * A cheap identity for "which screen is this". Package plus the first few
+     * stable labels: enough to notice the user moved to a different page,
+     * without churning on a countdown, a price tick, or a carousel — those
+     * would otherwise read as a new screen several times a second.
+     */
+    fun signature(): String {
+        if (packageName.isEmpty()) return ""
+        val labels = elements.asSequence()
+            .map { it.text.trim() }
+            .filter { it.length in 2..40 }
+            .distinct()
+            .take(6)
+            .sorted()
+            .joinToString("|")
+        return "$packageName#$labels"
     }
 }

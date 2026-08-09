@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Secondary controls. Deliberately quiet: on a voice surface these are
+     fallbacks, and a filled button next to the mic competes with the one
+     control the user is meant to reach for. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#14FFFFFF" />
+    <corners android:radius="12dp" />
+    <stroke android:width="1dp" android:color="#26FFFFFF" />
+</shape>

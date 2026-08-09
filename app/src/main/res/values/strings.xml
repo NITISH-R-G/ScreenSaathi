@@ -4,4 +4,12 @@
     <string name="demo_title">Pay Electricity Bill</string>
     <string name="accessibility_service_label">ScreenSaathi screen reader</string>
     <string name="accessibility_service_description">Lets ScreenSaathi see which field you are on so it can point at the right one and guide you through the task.</string>
+
+    <!-- Launcher / home screen -->
+    <string name="launcher_assistant_hint">Ask ScreenSaathi anything…</string>
+    <string name="launcher_app_count">%1$d apps on this phone</string>
+    <string name="launcher_no_apps">No launchable apps found</string>
+    <string name="launcher_discovery_failed">Couldn\'t read the app list on this device</string>
+    <string name="launcher_cannot_open">Couldn\'t open %1$s</string>
+    <string name="mic_label">Talk to ScreenSaathi</string>
 </resources>

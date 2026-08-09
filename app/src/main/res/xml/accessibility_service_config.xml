@@ -4,9 +4,9 @@
   canPerformGestures — ScreenSaathi points and speaks, it does not act.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewFocused|typeViewTextChanged|typeViewScrolled"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewFocused|typeViewTextChanged|typeViewScrolled|typeViewClicked"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagIncludeNotImportantViews|flagReportViewIds|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100"

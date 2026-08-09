@@ -8,19 +8,28 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
-    <!-- Package visibility (Android 11+): without these, getLaunchIntentForPackage
-         returns null for every one of them and the app reports that no taxi app
-         is installed on a phone that plainly has three. Named explicitly rather
-         than QUERY_ALL_PACKAGES — we only ever offer this list. Keep in sync
-         with RideApps.KNOWN. -->
+    <!--
+      Universal app discovery (Android 11+ package visibility).
+
+      This replaced a seven-package allow-list, which made the assistant
+      structurally incapable of its own core function: any app outside that list
+      was invisible, so "open WhatsApp" could only ever fail, and DeviceContext
+      correctly but uselessly reported UNKNOWN for nearly everything installed.
+
+      QUERY_ALL_PACKAGES is a Play-policy restricted permission. The
+      justification here is that app discovery IS the user-facing feature — the
+      user names an app and the assistant must determine whether it exists — and
+      a Play submission would have to declare exactly that. Nothing leaves the
+      device: the inventory is read on-device and only a compact, capped list of
+      labels ever reaches the model (see DeviceContext.toPromptText).
+    -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
     <queries>
-        <package android:name="com.ubercab" />
-        <package android:name="com.olacabs.customer" />
-        <package android:name="com.rapido.passenger" />
-        <package android:name="in.indrive.client" />
-        <package android:name="com.blusmart.rider" />
-        <package android:name="app.nammayatri.passenger" />
-        <package android:name="com.meru.mgt" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
@@ -42,6 +51,33 @@
             </intent-filter>
         </activity>
 
+        <!--
+          ScreenSaathi as the home screen.
+
+          Opt-in by construction: declaring CATEGORY_HOME only makes the app
+          *eligible*; Android routes HOME here solely if the user selects
+          ScreenSaathi as their default launcher. A user who never does is
+          unaffected, and MainActivity remains the normal entry point.
+
+          stateUnchanged/adjustPan and the excludeFromRecents/singleTask combo
+          are the standard launcher posture — a home screen should not stack
+          instances or appear in Recents as if it were an ordinary app.
+        -->
+        <activity
+            android:name=".launcher.LauncherActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:stateNotNeeded="true"
+            android:windowSoftInputMode="stateUnchanged|adjustPan"
+            android:theme="@style/Theme.ScreenSaathi">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- The controlled screen the assistant guides the user through. Real
              Android views with real resource ids, read live over accessibility. -->
         <activity
@@ -49,6 +85,21 @@
             android:exported="false"
             android:label="@string/demo_title"
             android:windowSoftInputMode="adjustResize" />
+
+        <!--
+          Trigger a highlight without changing the foreground app. Exported so
+          it can be driven from adb during development and demos; it carries no
+          data and only starts our own already-running service.
+        -->
+        <receiver
+            android:name=".HighlightReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.screensaathi.HIGHLIGHT" />
+                <action android:name="com.screensaathi.CLEAR_HIGHLIGHT" />
+                <action android:name="com.screensaathi.DUMP_SCREEN" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".OverlayService"
