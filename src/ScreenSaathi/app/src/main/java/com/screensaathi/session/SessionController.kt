@@ -217,6 +217,10 @@ class SessionController(
         // Drop the app pin: after a stop the user may pick a different app, and
         // a stale pin would make guidance wait forever for the old one.
         chosenPackage = ""
+        lastUserRequest = ""
+        lastHighlightQuery = null
+        lastHighlightScreenSig = ""
+        awaitingResettle = false
         val phrase = Phrases.get(Phrases.Key.STOPPED, lastLanguage)
         render(OverlayCommand(PillState.IDLE, expanded = true,
             instruction = phrase.text, highlight = null))
@@ -240,6 +244,12 @@ class SessionController(
         abandonRecording(turn)
         stopped = false
         chosenPackage = ""
+        // A rehearsal is a fresh intent. Never let an earlier spoken request or
+        // highlight query trigger screen-change replanning in this task.
+        lastUserRequest = ""
+        lastHighlightQuery = null
+        lastHighlightScreenSig = ""
+        awaitingResettle = false
         lastLanguage = Language.normalize(language)
         val task = tasks.byId(taskId)
         if (task == null) {
