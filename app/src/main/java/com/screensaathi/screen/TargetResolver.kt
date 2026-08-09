@@ -100,7 +100,7 @@ object TargetResolver {
         // exact hit on it covers both; the id is scored separately.
         return when {
             text.isNotEmpty() && text == q -> Candidate(e, SCORE_EXACT_TEXT, "exact_text")
-            id.isNotEmpty() && id == q -> Candidate(e, SCORE_EXACT_ID, "exact_id")
+            id.isNotEmpty() && e.isActionable && id == q -> Candidate(e, SCORE_EXACT_ID, "exact_id")
             text.isNotEmpty() && stripped(text) == stripped(q) ->
                 Candidate(e, SCORE_NORMALIZED, "normalized")
             // "wifi" should find "Wi-Fi", and "search" should find "Search
@@ -110,7 +110,7 @@ object TargetResolver {
                 Candidate(e, SCORE_WORD_PREFIX, "word_prefix")
             text.isNotEmpty() && containsWord(text, q) ->
                 Candidate(e, SCORE_CONTAINS_TEXT, "contains_word")
-            id.isNotEmpty() && containsWord(id, q) ->
+            id.isNotEmpty() && e.isActionable && containsWord(id, q) ->
                 Candidate(e, SCORE_ID_CONTAINS, "id_contains")
             else -> null
         }
@@ -127,6 +127,9 @@ object TargetResolver {
 
     private fun containsWord(haystack: String, needle: String): Boolean =
         Regex("\\b${Regex.escape(needle)}\\b").containsMatchIn(haystack)
+
+    private val ScreenElement.isActionable: Boolean
+        get() = clickable || editable
 
     private fun overlaps(a: Rect, b: Rect): Boolean = Rect.intersects(a, b)
 

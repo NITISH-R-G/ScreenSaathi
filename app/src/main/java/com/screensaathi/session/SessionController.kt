@@ -927,11 +927,6 @@ class SessionController(
                 publishDebug(turn) { it.copy(note = "OVERLAY_CLEAR reason=no_accessibility_service") }
                 break
             }
-            // The window-change handler compares against this to tell "still
-            // the same screen" from "the user moved on" — kept current on
-            // every settled read, not just when a target is found.
-            if (snap.settled) lastHighlightScreenSig = snap.signature()
-
             val result = TargetResolver.resolve(query, snap)
             val hl = when (result) {
                 is TargetResolver.Result.Found -> {
@@ -953,6 +948,10 @@ class SessionController(
                 }
                 Log.d(TAG, reason)
                 currentHighlight = hl
+                // Keep the signature of the screen that owns the visible ring.
+                // Updating it on every poll can make a destination screen look
+                // current before the transition callback clears the old target.
+                if (hl != null) lastHighlightScreenSig = snap.signature()
                 val say = when (result) {
                     is TargetResolver.Result.Found -> "Here it is."
                     is TargetResolver.Result.Ambiguous ->
