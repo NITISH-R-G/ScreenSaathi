@@ -763,7 +763,7 @@ class SessionController(
                     else -> true
                 }
 
-                val bounds = if (packageMatches && snap != null) {
+                val bounds = if (packageMatches && snap?.settled == true) {
                     resolveStepBounds(target, instruction.text, snap)
                 } else {
                     null
@@ -944,6 +944,11 @@ class SessionController(
             if (snap == null) {
                 publishDebug(turn) { it.copy(note = "OVERLAY_CLEAR reason=no_accessibility_service") }
                 break
+            }
+            if (!snap.settled) {
+                publishDebug(turn) { it.copy(note = "TARGET_WAIT reason=screen_unsettled") }
+                try { Thread.sleep(TARGET_POLL_INTERVAL_MS) } catch (_: InterruptedException) { break }
+                continue
             }
             val result = TargetResolver.resolve(query, snap)
             val hl = when (result) {
