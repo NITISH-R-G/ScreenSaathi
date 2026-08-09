@@ -1059,7 +1059,10 @@ class SessionController(
      * writes to it.
      */
     fun onWindowStateChanged() {
-        bg.post {
+        // Accessibility callbacks can outlive the overlay service on some OEMs.
+        // The old HandlerThread may already be stopped in that window.
+        if (!worker.isAlive) return
+        runCatching { bg.post {
             if (stopped) return@post
             val query = lastHighlightQuery ?: return@post
             if (currentHighlight == null && !awaitingResettle) return@post
@@ -1085,7 +1088,7 @@ class SessionController(
                 awaitingResettle = false
                 runHighlightPollLoop(invalidationTurn, query)
             }
-        }
+        } }
     }
 
     /**
@@ -1290,11 +1293,13 @@ class SessionController(
 
     fun dispose() {
         turnId.incrementAndGet() // invalidate anything still in flight
-        player.stop()
-        recorder.stop()
-        worker.quitSafely()
-        captureWorker.quitSafely()
-        speechWorker.quitSafely()
+        stopped = true
+        runCatching { player.stop() }
+        runCatching { recorder.stop() }
+        runCatching { worker.quitSafely() }
+        runCatching { captureWorker.quitSafely() }
+        runCatching { speechWorker.quitSafely() }
+        if (instance === this) instance = null
     }
 
     companion object {

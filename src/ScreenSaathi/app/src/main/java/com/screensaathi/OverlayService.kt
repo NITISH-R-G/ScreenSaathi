@@ -93,7 +93,14 @@ class OverlayService : Service() {
         // the first onCreate() finishes would otherwise register two pill
         // windows and two highlight windows, silently, with no crash to
         // notice by.
-        if (windowsAdded) return
+        if (windowsAdded) {
+            // A duplicate service instance can be delivered while the original
+            // overlay is still alive. It has no controller/windows of its own;
+            // tear it down instead of letting onStartCommand hit an
+            // uninitialised controller.
+            stopSelf()
+            return
+        }
         windowsAdded = true
 
         live = this
@@ -633,7 +640,7 @@ class OverlayService : Service() {
         super.onDestroy()
         if (live === this) live = null
         stopLevelPump()
-        controller.dispose()
+        if (::controller.isInitialized) controller.dispose()
         runCatching { wm.removeView(highlightView) }
         runCatching { wm.removeView(pillRoot) }
         // Only a real teardown clears this — a genuinely new overlay lifetime
