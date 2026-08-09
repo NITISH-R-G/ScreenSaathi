@@ -278,8 +278,22 @@ class SessionController(
             return
         }
         if (!Sarvam.hasKey()) {
-            // No key: skip STT entirely, just run the task deterministically.
-            startDefaultTask(turn, note = "no Sarvam key — deterministic path")
+            // Without a key we cannot transcribe the recording, so do not
+            // pretend that the user asked for the hardcoded demo task. Keep
+            // the deterministic rehearsal buttons available and explain the
+            // setup issue instead.
+            val unavailable = Spoken(
+                "Live voice is unavailable. Add a Sarvam API key, or use a rehearsal button.",
+                "en-IN",
+            )
+            publishDebug(turn) { it.copy(note = "no Sarvam key — voice not started") }
+            renderIfCurrent(turn, OverlayCommand(
+                PillState.ERROR,
+                expanded = true,
+                instruction = unavailable.text,
+                language = unavailable.language,
+            ))
+            speech.post { speak(unavailable, turn) }
             return
         }
         // Flip the pill first: the user must see "Listening…" the instant they
@@ -592,7 +606,11 @@ class SessionController(
     }
 
     private fun pickTask(transcript: String): GuidedTask {
-        return GuidedTask(1, "open_ended", transcript, emptyList(), emptyList())
+        // If the planner is unavailable after STT succeeds, retain the user's
+        // intent instead of falling through to the default taxi task. This is
+        // deterministic and uses the utterances authored in the task assets.
+        return tasks.matchByUtterance(transcript) ?:
+            GuidedTask(1, "open_ended", transcript, emptyList(), emptyList())
     }
 
     private fun presentCurrentStep(e: StepEngine, turn: Int, speak: Boolean) {
