@@ -62,5 +62,11 @@ object RideApps {
 
     fun labelFor(packageName: String): String = KNOWN[packageName] ?: packageName
 
+    /** The declared package set — must stay in sync with AndroidManifest's <queries>. */
+    val KNOWN_PACKAGES: Set<String> get() = KNOWN.keys
+
+    /** Label -> package, for resolving a spoken app name to a declared package. */
+    fun labelToPackage(): Map<String, String> = KNOWN.entries.associate { (pkg, label) -> label to pkg }
+
     private const val TAG = "RideApps"
 }

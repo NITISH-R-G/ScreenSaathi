@@ -103,6 +103,24 @@ class HighlightView(context: Context) : View(context) {
 
     private val originOnScreen = IntArray(2)
 
+    /** Last geometry passed to [show], in raw screen pixels. */
+    private var lastScreenRect = intArrayOf(0, 0, 0, 0)
+
+    /**
+     * True when the requested bounds match what is already displayed.
+     *
+     * A 1px tolerance: accessibility bounds jitter by a pixel during scroll
+     * settling, and restarting the animation for that is worse than ignoring it.
+     */
+    private fun sameTarget(l: Int, t: Int, r: Int, b: Int): Boolean {
+        val same = kotlin.math.abs(lastScreenRect[0] - l) <= 1 &&
+            kotlin.math.abs(lastScreenRect[1] - t) <= 1 &&
+            kotlin.math.abs(lastScreenRect[2] - r) <= 1 &&
+            kotlin.math.abs(lastScreenRect[3] - b) <= 1
+        if (!same) lastScreenRect = intArrayOf(l, t, r, b)
+        return same
+    }
+
     /**
      * Tell the layer where the pill sits, in screen pixels, so the cursor can
      * launch from it rather than materialising out of nowhere.
@@ -117,6 +135,17 @@ class HighlightView(context: Context) : View(context) {
     }
 
     fun show(l: Int, t: Int, r: Int, b: Int, shape: String, pulse: Boolean) {
+        // Same geometry as what is already on screen: keep pulsing, do NOT
+        // restart the flight. render() runs on every state change (SPEAKING ->
+        // GUIDING and back), and replaying the 620 ms arc each time made a
+        // stable ring look like it was constantly re-acquiring the target.
+        if (hasTarget && shape == this.shape && sameTarget(l, t, r, b)) {
+            this.pulseEnabled = pulse
+            if (pulse && !pulseAnimator.isStarted) pulseAnimator.start()
+            if (!pulse) pulseAnimator.cancel()
+            return
+        }
+
         this.shape = shape
         this.pulseEnabled = pulse
         // Accessibility reports absolute screen pixels, but this view's canvas
@@ -183,6 +212,24 @@ class HighlightView(context: Context) : View(context) {
         if (!pulseEnabled) pulseAnimator.cancel()
         visibility = VISIBLE
         invalidate()
+    }
+
+    /**
+     * Withdraw with no animation at all: cancel whatever is in flight and drop
+     * every geometry field in the same frame.
+     *
+     * [clear] flies the cursor home first, which is right when a step
+     * finishes normally. It is wrong the instant the screen itself has
+     * changed underneath the ring — the field that ring was drawn around no
+     * longer exists, so animating toward it (the tether, the trail, the
+     * glide) draws motion relative to a screen that is already gone. This is
+     * the only path that can run mid-transition, so it must never allocate,
+     * schedule, or leave anything to finish on a later frame.
+     */
+    fun clearInstant() {
+        flightAnimator?.cancel()
+        pulseAnimator.cancel()
+        finishClear()
     }
 
     /** Withdraw cleanly: the cursor flies home, then everything disappears. */

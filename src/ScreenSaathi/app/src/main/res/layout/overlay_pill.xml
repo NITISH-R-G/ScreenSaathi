@@ -5,7 +5,7 @@
      covering the form fields the highlight points at. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/pill_root"
-    android:layout_width="wrap_content"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/pill_bg"
@@ -15,7 +15,7 @@
     <!-- Card body: shown only when expanded. Sits ABOVE the pill row. -->
     <LinearLayout
         android:id="@+id/card_body"
-        android:layout_width="280dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingHorizontal="8dp"
@@ -30,7 +30,9 @@
             android:textColor="@color/saathi_text"
             android:textSize="16sp"
             android:lineSpacingExtra="2dp"
-            android:paddingBottom="12dp" />
+            android:paddingBottom="12dp"
+            android:maxLines="3"
+            android:ellipsize="end" />
 
         <!-- Choice row: one button per option (e.g. the ride apps on this
              phone). Hidden unless the current step actually asks something. -->
@@ -78,46 +80,76 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <LinearLayout
+        <!--
+          The single voice surface. Exactly one child is ever visible:
+
+            IDLE / GUIDING -> transport_row (mic, Next, Stop)
+            LISTENING / THINKING / SPEAKING -> waveform
+
+          Both occupy the same fixed-height slot, so swapping between them
+          cannot move anything else in the card — the mic's touch target stays
+          where the mic was drawn, and the row below never shifts under the
+          user's finger mid-tap.
+        -->
+        <FrameLayout
+            android:id="@+id/voice_slot"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_height="56dp">
 
-            <TextView
-                android:id="@+id/mic_button"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:background="@drawable/mic_btn_bg"
-                android:text="🎤"
-                android:gravity="center"
-                android:textSize="22sp" />
+            <LinearLayout
+                android:id="@+id/transport_row"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/next_button"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="10dp"
-                android:background="#33FFFFFF"
-                android:text="Next ▸"
-                android:gravity="center"
-                android:textColor="@color/saathi_text"
-                android:textSize="15sp" />
+                <ImageView
+                    android:id="@+id/mic_button"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:background="@drawable/mic_circle_bg"
+                    android:src="@drawable/ic_mic"
+                    android:scaleType="center"
+                    android:contentDescription="@string/mic_label"
+                    android:clickable="true"
+                    android:focusable="true" />
 
-            <!-- Stop: always reachable, so the user can call the guidance off
-                 mid-sentence without force-quitting anything. -->
-            <TextView
-                android:id="@+id/stop_button"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:background="#33FF5A5A"
-                android:text="■"
-                android:gravity="center"
-                android:textColor="@color/saathi_text"
-                android:textSize="15sp" />
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/next_button"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:background="@drawable/ghost_btn_bg"
+                    android:text="Next"
+                    android:gravity="center"
+                    android:textColor="@color/saathi_text"
+                    android:textSize="14sp" />
+
+                <!-- Stop: always reachable, so the user can call the guidance off
+                     mid-sentence without force-quitting anything. -->
+                <TextView
+                    android:id="@+id/stop_button"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/ghost_btn_bg"
+                    android:text="■"
+                    android:gravity="center"
+                    android:textColor="@color/saathi_text_dim"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- Tappable too: while listening the mic is gone, and tapping the
+                 wave is the obvious way to say "I'm done". -->
+            <com.screensaathi.overlay.VoiceWaveformView
+                android:id="@+id/waveform"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone" />
+        </FrameLayout>
 
         <!-- Debug panel (M5). Hidden by default; toggled by long-pressing the pill. -->
         <TextView
@@ -132,6 +164,19 @@
             android:text="" />
     </LinearLayout>
 
+    <!-- Minimised presentation: a single dot. Shown only in MINIMIZED, where
+         the goal is the smallest possible touch footprint over the app the
+         user is actually trying to use. -->
+    <View
+        android:id="@+id/minimized_dot"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/mic_circle_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
     <!-- Pill row: always visible. Tap to expand/collapse. Stays at the bottom. -->
     <LinearLayout
         android:id="@+id/pill_row"
@@ -143,11 +188,15 @@
         android:paddingHorizontal="8dp"
         android:paddingVertical="4dp">
 
-        <View
+        <!-- The at-a-glance indicator for the COLLAPSED pill only. When
+             card_body is expanded, mic_button already shows the same state
+             at 52dp — showing both at once is exactly the "mic + orb + text
+             all together" clutter this was rebuilt to remove, so
+             setExpanded() hides this the instant card_body appears. -->
+        <com.screensaathi.overlay.StateOrbView
             android:id="@+id/state_dot"
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:background="@drawable/mic_btn_bg" />
+            android:layout_width="18dp"
+            android:layout_height="18dp" />
 
         <TextView
             android:id="@+id/pill_label"

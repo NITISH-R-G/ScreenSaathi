@@ -139,9 +139,17 @@ object SafetyGuard {
 
         // FIX 1: an irreversible target must be named in the request.
         // "Go ahead" is not authorisation to press Submit.
-        val targetLabel = normalize("$targetResourceId $targetText $actionPayload")
-        val hint = IRREVERSIBLE_HINTS.firstOrNull { targetLabel.contains(it) }
-        if (hint != null && !req.contains(hint)) {
+        //
+        // Matched on whole normalized WORDS, not raw substring — plain
+        // .contains() flagged a "Recall Settings" button as an unrequested
+        // irreversible action merely because "recall" contains "call". The
+        // words are checked individually rather than as one joined string so
+        // a hint spanning a resourceId/text/payload boundary can't accidentally
+        // form from unrelated adjacent tokens (e.g. "..._pay" + "book_...").
+        val targetWords = (normalize(targetResourceId) + " " + normalize(targetText) + " " + normalize(actionPayload))
+            .split(" ").filter { it.isNotBlank() }.toSet()
+        val hint = IRREVERSIBLE_HINTS.firstOrNull { it in targetWords }
+        if (hint != null && hint !in req.split(" ")) {
             return Verdict.Block("irreversible action '$hint' was not explicitly requested")
         }
 
@@ -188,13 +196,31 @@ object SafetyGuard {
      * three are refused here and fall back to `guide`. Selecting on the user's
      * behalf needs a ranking policy this product does not have yet.
      */
-    fun validateLaunchAuthorization(userRequest: String, resolution: AppResolution): Verdict {
+    fun validateLaunchAuthorization(
+        userRequest: String,
+        resolution: AppResolution,
+        /**
+         * A package the user explicitly picked from a list the assistant
+         * presented. Tapping "Uber" in a choice dialog authorises Uber just as
+         * plainly as saying its name — arguably more so, since the user chose it
+         * from real device evidence rather than from memory.
+         *
+         * Only the *exact* package counts. This is not a bypass: an unset or
+         * mismatched value falls through to the naming check below.
+         */
+        userSelectedPackage: String? = null,
+    ): Verdict {
         val evidence = validateLaunch(resolution)
         if (evidence is Verdict.Block) return evidence
 
-        val label = resolution.single?.label ?: return Verdict.Block("no single resolved app to authorise")
-        if (!requestNamesApp(userRequest, label)) {
-            return Verdict.Block("user did not name \"$label\" — asked: \"$userRequest\"")
+        val resolved = resolution.single ?: return Verdict.Block("no single resolved app to authorise")
+
+        if (!userSelectedPackage.isNullOrBlank() && userSelectedPackage == resolved.packageName) {
+            return Verdict.Allow
+        }
+
+        if (!requestNamesApp(userRequest, resolved.label)) {
+            return Verdict.Block("user did not name \"${resolved.label}\" — asked: \"$userRequest\"")
         }
         return Verdict.Allow
     }

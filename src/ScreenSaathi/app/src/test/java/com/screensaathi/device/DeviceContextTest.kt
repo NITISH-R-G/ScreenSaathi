@@ -90,14 +90,35 @@ class DeviceContextTest {
 
     // --- 6: ambiguity ---------------------------------------------------------
 
+    /**
+     * CHANGED by the finding-3 fix (real-device validation, Uber/Uber Eats
+     * collision): this test previously asserted that "Chrome" was ambiguous
+     * between "Chrome" and "Chrome Beta". That was itself the bug — an exact
+     * label match must win over a substring sibling, exactly as "Open Uber"
+     * must resolve to Uber even with Uber Eats also installed. Split into two
+     * cases so both the fixed exact-match behaviour and genuine substring
+     * ambiguity (no exact match exists) stay covered.
+     */
     @Test
-    fun `multiple matches are not resolved arbitrarily`() {
+    fun `an exact label match wins over a substring sibling, not ambiguous`() {
         val c = DeviceContext(
             listOf(DeviceApp("Chrome Beta", "com.chrome.beta", true), DeviceApp("Chrome", "com.android.chrome", true)),
             visible, Evidence.PACKAGE_MANAGER, 1L,
         )
         val r = c.resolveApp("Chrome", rideLabels)
-        assertTrue("both Chromes should match", r.isAmbiguous)
+        assertTrue("an exact match must not be reported as ambiguous", !r.isAmbiguous)
+        assertEquals("com.android.chrome", r.single?.packageName)
+        assertTrue(SafetyGuard.validateLaunch(r) is SafetyGuard.Verdict.Allow)
+    }
+
+    @Test
+    fun `multiple substring matches with no exact hit remain ambiguous`() {
+        val c = DeviceContext(
+            listOf(DeviceApp("Chrome Beta", "com.chrome.beta", true), DeviceApp("Chrome Dev", "com.chrome.dev", true)),
+            visible, Evidence.PACKAGE_MANAGER, 1L,
+        )
+        val r = c.resolveApp("Chrome", rideLabels)
+        assertTrue("neither is an exact match, so genuine ambiguity must remain", r.isAmbiguous)
         assertTrue("must ask, not guess", SafetyGuard.validateLaunch(r) is SafetyGuard.Verdict.Block)
     }
 

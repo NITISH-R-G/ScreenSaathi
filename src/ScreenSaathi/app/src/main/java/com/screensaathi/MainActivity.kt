@@ -113,6 +113,11 @@ class MainActivity : AppCompatActivity() {
                 OverlayService.runTask(this, task, language)
             }
             "choose" -> OverlayService.choose(this, intent.getIntExtra("choice", 0))
+            // adb: am start -n com.screensaathi/.MainActivity --es saathi_action highlight --es query "Wi-Fi"
+            "highlight" -> {
+                val q = intent.getStringExtra("query").orEmpty()
+                if (q.isNotBlank()) OverlayService.highlight(this, q)
+            }
         }
         intent.removeExtra(EXTRA_ACTION)
         finish()

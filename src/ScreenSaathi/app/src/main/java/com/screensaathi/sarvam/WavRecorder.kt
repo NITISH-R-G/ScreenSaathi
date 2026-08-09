@@ -29,6 +29,20 @@ class WavRecorder {
         private set
 
     /**
+     * Normalised 0..1 loudness of the most recent PCM buffer, for the voice
+     * waveform.
+     *
+     * Computed here, inside the existing write loop, rather than from a second
+     * AudioRecord: two recorders on one mic is either an outright failure or a
+     * silent capture on most OEMs, and the buffer is already in hand. The
+     * visualiser only ever reads this field, so the audio layer stays unaware
+     * of how — or whether — anything is drawn.
+     */
+    @Volatile
+    var level: Float = 0f
+        private set
+
+    /**
      * Captured audio length in ms. The caller uses this to refuse to spend an
      * STT round trip on a double-tapped mic that recorded nothing.
      */
@@ -62,6 +76,7 @@ class WavRecorder {
     fun stop() {
         if (!recording) return
         recording = false
+        level = 0f
         try { thread?.join(1500) } catch (_: InterruptedException) {}
         try { record?.stop() } catch (_: Exception) {}
         record?.release()
@@ -81,6 +96,7 @@ class WavRecorder {
                         raf.write(buf, 0, n)
                         total += n
                         bytesRecorded = total
+                        level = rms(buf, n)
                     }
                 }
                 // Patch sizes now that we know the payload length.
@@ -90,6 +106,32 @@ class WavRecorder {
         } catch (e: Exception) {
             Log.w(TAG, "write loop failed: ${e.message}")
         }
+    }
+
+    /**
+     * RMS of one 16-bit little-endian mono buffer, mapped to 0..1.
+     *
+     * Perceptual, not linear: speech sits far below full scale, so a linear
+     * RMS/32768 reading leaves a waveform that barely twitches while someone
+     * is plainly talking. The log curve below puts normal speech in the upper
+     * half of the range, which is what makes the visualiser track the voice
+     * instead of looking broken.
+     */
+    private fun rms(buf: ByteArray, n: Int): Float {
+        var sum = 0.0
+        var i = 0
+        val samples = n / 2
+        if (samples <= 0) return 0f
+        while (i + 1 < n) {
+            val s = ((buf[i + 1].toInt() shl 8) or (buf[i].toInt() and 0xff)).toShort().toInt()
+            sum += (s.toDouble() * s.toDouble())
+            i += 2
+        }
+        val rms = kotlin.math.sqrt(sum / samples)
+        if (rms < 1.0) return 0f
+        // ~ -60dBFS floor -> 0, full scale -> 1.
+        val db = 20.0 * kotlin.math.log10(rms / 32768.0)
+        return ((db + 60.0) / 60.0).coerceIn(0.0, 1.0).toFloat()
     }
 
     private fun writeWavHeader(raf: RandomAccessFile, dataLen: Int) {

@@ -1,0 +1,5 @@
+# Copy this file to local.properties and set the path to your Android SDK.
+sdk.dir=C\:/path/to/Android/Sdk
+
+# Optional: without this key, ScreenSaathi uses its deterministic offline fallback.
+sarvam.api.key=
