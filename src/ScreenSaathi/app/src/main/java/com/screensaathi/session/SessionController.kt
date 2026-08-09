@@ -477,7 +477,7 @@ class SessionController(
 
     private fun processOpenEndedNext(turn: Int, intent: String, snapshot: ScreenSnapshot?) {
         val snap = snapshot ?: ScreenReaderService.instance?.snapshot() ?: ScreenSnapshot.EMPTY
-        
+
         renderIfCurrent(turn, OverlayCommand(PillState.THINKING, expanded = true,
             instruction = Phrases.get(Phrases.Key.THINKING, lastLanguage).text,
             language = lastLanguage))
@@ -485,9 +485,9 @@ class SessionController(
         val tp0 = SystemClock.uptimeMillis()
         val plan = planner.planOpenEnded(intent, snap, lastLanguage)
         val planMs = SystemClock.uptimeMillis() - tp0
-        
+
         if (!isCurrent(turn)) return
-        
+
         if (plan != null) {
             if (plan.isDone || plan.actionType == "answer") {
                 currentHighlight = null
@@ -501,7 +501,7 @@ class SessionController(
                 speech.post { speak(textToSpeak, turn) }
                 return
             }
-            
+
             // The open-ended path can tap, type and launch apps. Until now the
             // only gate was `plan != null` above, so a confident plan acted
             // unconditionally. Validate against the screen BEFORE building the
@@ -552,7 +552,7 @@ class SessionController(
             val newTask = GuidedTask(1, "open_ended", intent, emptyList(), listOf(openEndedStep))
             val e = StepEngine(newTask)
             engine = e
-            
+
             publishDebug(turn) {
                 it.copy(
                     intent = intent, step = "open_ended_step",

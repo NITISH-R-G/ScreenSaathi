@@ -238,15 +238,15 @@ class ScreenReaderService : AccessibilityService() {
 
     private fun findNode(node: AccessibilityNodeInfo?, resourceId: String, textAny: List<String>, requiresClickable: Boolean): AccessibilityNodeInfo? {
         if (node == null) return null
-        
+
         val rid = node.viewIdResourceName?.substringAfterLast('/') ?: ""
         if (rid in OVERLAY_IDS) return null
-        
+
         val validAction = if (requiresClickable) node.isClickable else (node.isClickable || node.isEditable)
         if (resourceId.isNotEmpty() && rid == resourceId && validAction) {
             return AccessibilityNodeInfo.obtain(node)
         }
-        
+
         val text = (node.text ?: node.contentDescription)?.toString() ?: ""
         if (textAny.isNotEmpty() && textAny.any { it.equals(text, ignoreCase = true) } && validAction) {
             return AccessibilityNodeInfo.obtain(node)
