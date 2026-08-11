@@ -13,7 +13,7 @@ $sp   = "C:\Users\nitis\AppData\Local\Temp\claude\C--Projects-Sarvam\dba325a3-0f
 $line = Get-Content "$root\local.properties" | Where-Object { $_ -match '^\s*sarvam\.api\.key\s*=' } | Select-Object -First 1
 $Key = ($line -split '=',2)[1].Trim()
 
-$prompt = [IO.File]::ReadAllText("$root\src\ScreenSaathi\app\src\main\assets\prompts\planner_v1.md", [Text.UTF8Encoding]::new($false))
+$prompt = [IO.File]::ReadAllText("$root\app\src\main\assets\prompts\planner_v1.md", [Text.UTF8Encoding]::new($false))
 
 $screen = @"
 Screen: com.screensaathi

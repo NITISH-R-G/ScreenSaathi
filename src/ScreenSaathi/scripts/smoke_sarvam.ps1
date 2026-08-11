@@ -26,9 +26,9 @@ if ([string]::IsNullOrWhiteSpace($Key)) {
 }
 $hdr = @{ "api-subscription-key" = $Key }
 
-Write-Host "`n=== 1. Sarvam-105B planner (chat + forced tool call) ===" -ForegroundColor Cyan
+Write-Host "`n=== 1. Sarvam-30B planner (chat + forced tool call) ===" -ForegroundColor Cyan
 $chatBody = @{
-  model = "sarvam-105b"
+  model = "sarvam-30b"
   messages = @(
     @{ role = "system"; content = "Call set_plan once. Never reply with prose." },
     @{ role = "user"; content = "User said: 'help me pay this bill'. Steps: amount, account, submit." }

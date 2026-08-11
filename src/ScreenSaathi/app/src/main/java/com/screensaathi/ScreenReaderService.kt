@@ -29,15 +29,6 @@ class ScreenReaderService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // The assistant is itself an accessibility window. Its redraws emit
-        // content/focus events, but they are not changes to the app the user
-        // is trying to target and must not keep the screen permanently
-        // "unsettled".
-        if (event?.packageName?.toString() == packageName &&
-            event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-        ) {
-            return
-        }
         when (event?.eventType) {
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_SCROLLED,
@@ -143,18 +134,7 @@ class ScreenReaderService : AccessibilityService() {
      * system ones and topmost over lower layers.
      */
     private fun resolveRoot(): AccessibilityNodeInfo? {
-        // When the non-focusable overlay briefly becomes the active root,
-        // returning it produces an empty snapshot and the target disappears.
-        // Prefer it only when it is a real app root; otherwise inspect the
-        // application/system windows below it.
-        rootInActiveWindow?.let { active ->
-            val id = active.viewIdResourceName?.substringAfterLast('/')
-            if (id !in OVERLAY_IDS) return active
-        }
-        return resolveWindowRoot()
-    }
-
-    private fun resolveWindowRoot(): AccessibilityNodeInfo? {
+        rootInActiveWindow?.let { return it }
         return try {
             windows
                 .filter {
@@ -176,23 +156,10 @@ class ScreenReaderService : AccessibilityService() {
 
     fun snapshot(): ScreenSnapshot {
         val root = resolveRoot() ?: return ScreenSnapshot.EMPTY
-        var pkg = root.packageName?.toString() ?: ""
+        val pkg = root.packageName?.toString() ?: ""
         val elements = ArrayList<ScreenElement>()
         val counter = intArrayOf(0)
         walk(root, elements, counter)
-
-        // Some Android versions expose the assistant's root without a stable
-        // resource id. If that happens, retry against the underlying window
-        // before handing an empty snapshot to the resolver.
-        if (elements.isEmpty() && pkg == packageName) {
-            val fallback = resolveWindowRoot()
-            if (fallback != null && fallback !== root) {
-                pkg = fallback.packageName?.toString() ?: pkg
-                elements.clear()
-                counter[0] = 0
-                walk(fallback, elements, counter)
-            }
-        }
         return ScreenSnapshot(pkg, isSettled(), elements)
     }
 
@@ -271,15 +238,15 @@ class ScreenReaderService : AccessibilityService() {
 
     private fun findNode(node: AccessibilityNodeInfo?, resourceId: String, textAny: List<String>, requiresClickable: Boolean): AccessibilityNodeInfo? {
         if (node == null) return null
-
+        
         val rid = node.viewIdResourceName?.substringAfterLast('/') ?: ""
         if (rid in OVERLAY_IDS) return null
-
+        
         val validAction = if (requiresClickable) node.isClickable else (node.isClickable || node.isEditable)
         if (resourceId.isNotEmpty() && rid == resourceId && validAction) {
             return AccessibilityNodeInfo.obtain(node)
         }
-
+        
         val text = (node.text ?: node.contentDescription)?.toString() ?: ""
         if (textAny.isNotEmpty() && textAny.any { it.equals(text, ignoreCase = true) } && validAction) {
             return AccessibilityNodeInfo.obtain(node)

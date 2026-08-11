@@ -217,10 +217,6 @@ class SessionController(
         // Drop the app pin: after a stop the user may pick a different app, and
         // a stale pin would make guidance wait forever for the old one.
         chosenPackage = ""
-        lastUserRequest = ""
-        lastHighlightQuery = null
-        lastHighlightScreenSig = ""
-        awaitingResettle = false
         val phrase = Phrases.get(Phrases.Key.STOPPED, lastLanguage)
         render(OverlayCommand(PillState.IDLE, expanded = true,
             instruction = phrase.text, highlight = null))
@@ -244,12 +240,6 @@ class SessionController(
         abandonRecording(turn)
         stopped = false
         chosenPackage = ""
-        // A rehearsal is a fresh intent. Never let an earlier spoken request or
-        // highlight query trigger screen-change replanning in this task.
-        lastUserRequest = ""
-        lastHighlightQuery = null
-        lastHighlightScreenSig = ""
-        awaitingResettle = false
         lastLanguage = Language.normalize(language)
         val task = tasks.byId(taskId)
         if (task == null) {
@@ -288,22 +278,8 @@ class SessionController(
             return
         }
         if (!Sarvam.hasKey()) {
-            // Without a key we cannot transcribe the recording, so do not
-            // pretend that the user asked for the hardcoded demo task. Keep
-            // the deterministic rehearsal buttons available and explain the
-            // setup issue instead.
-            val unavailable = Spoken(
-                "Live voice is unavailable. Add a Sarvam API key, or use a rehearsal button.",
-                "en-IN",
-            )
-            publishDebug(turn) { it.copy(note = "no Sarvam key — voice not started") }
-            renderIfCurrent(turn, OverlayCommand(
-                PillState.ERROR,
-                expanded = true,
-                instruction = unavailable.text,
-                language = unavailable.language,
-            ))
-            speech.post { speak(unavailable, turn) }
+            // No key: skip STT entirely, just run the task deterministically.
+            startDefaultTask(turn, note = "no Sarvam key — deterministic path")
             return
         }
         // Flip the pill first: the user must see "Listening…" the instant they
@@ -501,7 +477,7 @@ class SessionController(
 
     private fun processOpenEndedNext(turn: Int, intent: String, snapshot: ScreenSnapshot?) {
         val snap = snapshot ?: ScreenReaderService.instance?.snapshot() ?: ScreenSnapshot.EMPTY
-
+        
         renderIfCurrent(turn, OverlayCommand(PillState.THINKING, expanded = true,
             instruction = Phrases.get(Phrases.Key.THINKING, lastLanguage).text,
             language = lastLanguage))
@@ -509,9 +485,9 @@ class SessionController(
         val tp0 = SystemClock.uptimeMillis()
         val plan = planner.planOpenEnded(intent, snap, lastLanguage)
         val planMs = SystemClock.uptimeMillis() - tp0
-
+        
         if (!isCurrent(turn)) return
-
+        
         if (plan != null) {
             if (plan.isDone || plan.actionType == "answer") {
                 currentHighlight = null
@@ -525,7 +501,7 @@ class SessionController(
                 speech.post { speak(textToSpeak, turn) }
                 return
             }
-
+            
             // The open-ended path can tap, type and launch apps. Until now the
             // only gate was `plan != null` above, so a confident plan acted
             // unconditionally. Validate against the screen BEFORE building the
@@ -576,7 +552,7 @@ class SessionController(
             val newTask = GuidedTask(1, "open_ended", intent, emptyList(), listOf(openEndedStep))
             val e = StepEngine(newTask)
             engine = e
-
+            
             publishDebug(turn) {
                 it.copy(
                     intent = intent, step = "open_ended_step",
@@ -616,11 +592,7 @@ class SessionController(
     }
 
     private fun pickTask(transcript: String): GuidedTask {
-        // If the planner is unavailable after STT succeeds, retain the user's
-        // intent instead of falling through to the default taxi task. This is
-        // deterministic and uses the utterances authored in the task assets.
-        return tasks.matchByUtterance(transcript) ?:
-            GuidedTask(1, "open_ended", transcript, emptyList(), emptyList())
+        return GuidedTask(1, "open_ended", transcript, emptyList(), emptyList())
     }
 
     private fun presentCurrentStep(e: StepEngine, turn: Int, speak: Boolean) {
@@ -773,7 +745,7 @@ class SessionController(
                     else -> true
                 }
 
-                val bounds = if (packageMatches && snap?.settled == true) {
+                val bounds = if (packageMatches && snap != null) {
                     resolveStepBounds(target, instruction.text, snap)
                 } else {
                     null
@@ -955,11 +927,6 @@ class SessionController(
                 publishDebug(turn) { it.copy(note = "OVERLAY_CLEAR reason=no_accessibility_service") }
                 break
             }
-            if (!snap.settled) {
-                publishDebug(turn) { it.copy(note = "TARGET_WAIT reason=screen_unsettled") }
-                try { Thread.sleep(TARGET_POLL_INTERVAL_MS) } catch (_: InterruptedException) { break }
-                continue
-            }
             val result = TargetResolver.resolve(query, snap)
             val hl = when (result) {
                 is TargetResolver.Result.Found -> {
@@ -1059,10 +1026,7 @@ class SessionController(
      * writes to it.
      */
     fun onWindowStateChanged() {
-        // Accessibility callbacks can outlive the overlay service on some OEMs.
-        // The old HandlerThread may already be stopped in that window.
-        if (!worker.isAlive) return
-        runCatching { bg.post {
+        bg.post {
             if (stopped) return@post
             val query = lastHighlightQuery ?: return@post
             if (currentHighlight == null && !awaitingResettle) return@post
@@ -1088,7 +1052,7 @@ class SessionController(
                 awaitingResettle = false
                 runHighlightPollLoop(invalidationTurn, query)
             }
-        } }
+        }
     }
 
     /**
@@ -1293,13 +1257,11 @@ class SessionController(
 
     fun dispose() {
         turnId.incrementAndGet() // invalidate anything still in flight
-        stopped = true
-        runCatching { player.stop() }
-        runCatching { recorder.stop() }
-        runCatching { worker.quitSafely() }
-        runCatching { captureWorker.quitSafely() }
-        runCatching { speechWorker.quitSafely() }
-        if (instance === this) instance = null
+        player.stop()
+        recorder.stop()
+        worker.quitSafely()
+        captureWorker.quitSafely()
+        speechWorker.quitSafely()
     }
 
     companion object {
