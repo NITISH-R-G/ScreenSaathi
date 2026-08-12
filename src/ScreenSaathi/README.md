@@ -208,6 +208,6 @@ rather than discovered by you later:
 Bug reports, PRs and questions are welcome. If you're looking for a place to
 start, [`CONTRIBUTING.md`](CONTRIBUTING.md) has a "Good first contribution"
 section broken down by area (AI/agent, Android, vision/perception, UX,
-safety, developer experience). See [`ROADMAP.md`](ROADMAP.md) for what's
+safety, developer experience). See [`ROADMAP.md`](../../ROADMAP.md) for what's
 shipped, in progress, and planned — and [`AGENTS.md`](AGENTS.md) if you're an
 AI coding agent picking this up.

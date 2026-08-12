@@ -1,7 +1,7 @@
 # Roadmap
 
 What's actually shipped, what's actively being worked, and what's deliberately
-deferred. Sourced from `docs/PARKING_LOT.md` and `docs/DECISIONS.md` — no
+deferred. Sourced from `src/ScreenSaathi/docs/PARKING_LOT.md` and `src/ScreenSaathi/docs/DECISIONS.md` — no
 item here is speculative marketing; each is either verified working or
 explicitly logged as a known gap.
 
@@ -20,13 +20,13 @@ explicitly logged as a known gap.
 - Movable, keyboard-aware overlay: fixed 320dp window, drag with touch-slop
   gating, repositions itself clear of the on-screen keyboard by reading the
   accessibility window list (the overlay's own `WindowInsets` can't see the
-  IME — see `docs/DECISIONS.md`).
+  IME — see `src/ScreenSaathi/docs/DECISIONS.md`).
 - Real-time microphone waveform in the listening state, computed from actual
   RMS inside the existing recording loop — not a decorative animation.
 - App-agnostic target resolution: `TargetResolver` has no per-app branches;
   the same ranked-scoring code resolves Uber's `Where to?` and PhonePe's
   `Electricity Bill`. Refuses to guess on an ambiguous or absent match.
-- Frozen five-piece architecture + JSON Schema contracts (`contracts/`) from
+- Frozen five-piece architecture + JSON Schema contracts (`src/ScreenSaathi/contracts/`) from
   the M1 milestone — no field ever removed, only optional additions.
 - CI: build, unit tests, lint, and a secret-scanning guard on every push.
 - GitHub Release (`v0.1.0`) with a signed-off debug APK, SHA256 checksum, and
@@ -34,7 +34,7 @@ explicitly logged as a known gap.
 
 ## In progress
 
-- **Hindi "skip ahead" phrasing** — fixed once (`docs/PARKING_LOT.md`,
+- **Hindi "skip ahead" phrasing** — fixed once (`src/ScreenSaathi/docs/PARKING_LOT.md`,
   2026-07-31) after the forced `sarvam-30b` → `sarvam-105b` model swap;
   behavior around correction/"go back" utterances on the new model needs a
   second verification pass before it's fully trusted in a live demo.
@@ -53,7 +53,8 @@ explicitly logged as a known gap.
   Malayalam, Marathi, Punjabi, Telugu) get full UI chrome ("Listening…",
   button labels) — currently only the spoken planner instructions localize;
   the pill's own text falls back to English. Mechanically an addition to
-  `session/Phrases.kt` and `overlay/PillLabels.kt`, not a redesign.
+  `Phrases.kt` and `PillLabels.kt` in the Android project's `session/` and
+  `overlay/` packages, not a redesign.
 - Per-language TTS voice — every language currently speaks with the same
   Bulbul speaker (`anand`).
 - Barge-in: interrupting the assistant by speaking over it. Currently the
@@ -67,7 +68,7 @@ explicitly logged as a known gap.
 - An AI-provider abstraction (`ScreenSnapshot → ScreenUnderstanding →
   AgentDecision → SafetyCheck → Action`) so a second model/provider could sit
   behind `SarvamPlanner` — deliberately not built yet; see
-  `docs/DECISIONS.md` for why introducing it under a demo deadline was judged
+  `src/ScreenSaathi/docs/DECISIONS.md` for why introducing it under a demo deadline was judged
   too risky to the one verified pipeline.
 - A MediaProjection/vision fallback for apps that expose too little to the
   Accessibility API — currently the resolver just reports `NotFound` rather
@@ -81,5 +82,5 @@ clipboard paste, readback verification), a general screenshot/vision
 perception path as the *primary* mode, a GPT-Realtime or other alternate
 realtime architecture replacing the current Sarvam pipeline, proactive
 background watching, telemetry, multi-agent loops, and any account/auth/
-settings/analytics surface. See `docs/PARKING_LOT.md` for the full list and
+settings/analytics surface. See `src/ScreenSaathi/docs/PARKING_LOT.md` for the full list and
 reasoning.

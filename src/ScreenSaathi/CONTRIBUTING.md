@@ -23,7 +23,7 @@ already deliberately deferred.
 ## Good first contribution
 
 Pick an area below — each maps to real, non-frozen surface area. See
-[`ROADMAP.md`](ROADMAP.md) for the current planned/in-progress list this
+[`ROADMAP.md`](../../ROADMAP.md) for the current planned/in-progress list this
 feeds from, and `docs/DECISIONS.md` before touching anything it calls out as
 measured/dangerous.
 
