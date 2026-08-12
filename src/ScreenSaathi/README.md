@@ -2,6 +2,8 @@
 
 ### An open-source AI copilot that sees your Android screen and shows you exactly where to tap
 
+![ScreenSaathi resolves and rings Uber's real "Where to?" field, live on device](docs/assets/hero.png)
+
 [![Android CI](https://github.com/NITISH-R-G/ScreenSaathi/actions/workflows/android.yml/badge.svg)](https://github.com/NITISH-R-G/ScreenSaathi/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/github/license/NITISH-R-G/ScreenSaathi)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/kotlin-100%25-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
@@ -16,21 +18,35 @@ Then it waits for **you** to tap it. It never acts on your behalf.
 Built for people who find modern app interfaces hard to navigate: it listens
 in Hindi, Tamil or English, and answers back in whichever one you spoke.
 
-**[⬇ Download the demo APK](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)** — no build required, see [Installation](#installation) below.
+## 🚀 Try it now
+
+No build, no Android Studio — just a phone.
+
+1. **[Download the latest APK](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)** from the Releases page.
+2. Open the downloaded file and tap **Install** (allow "install from unknown sources" if asked — this is normal for an APK not on the Play Store).
+3. Open **ScreenSaathi** and tap **1. Allow display over other apps** → enable it for ScreenSaathi.
+4. Tap **2. Allow microphone** → grant it.
+5. Tap **3. Turn on ScreenSaathi screen reader** → find ScreenSaathi in the Accessibility list → enable it.
+6. Back in the app, tap **Start assistant**. A small floating pill appears.
+7. Go to the home screen, open any app, tap the pill, and speak a request — e.g. *"Help me book a taxi."* Watch it ring the real button for you to tap.
+
+A **physical Android device (8.0+)** is required — accessibility services,
+overlay windows and the microphone don't behave meaningfully on an emulator.
+Building from source instead? See [Build](#build) below.
 
 ## What it looks like
 
-Real on-device screenshots, not mockups.
+Real on-device screenshots, captured this session — not mockups, not renders.
 
 | | |
 |---|---|
-| ![Idle assistant, compact pill](docs/screenshots/screen-saathi-idle.png) | ![Listening, real microphone waveform](docs/screenshots/screen-saathi-listening.png) |
-| Idle — compact, out of the way | Listening — one real waveform, driven by actual mic amplitude |
-| ![Ring precisely on Uber's Where to field](docs/screenshots/screen-saathi-highlight.png) | ![Assistant lifted above the open keyboard](docs/screenshots/screen-saathi-keyboard.png) |
-| The ring on Uber's real `Where to?` element — resolved, not hardcoded | Moves itself clear of the keyboard automatically |
+| ![Idle, ScreenSaathi's own launcher waiting for a request](docs/assets/idle.png) | ![Listening, real microphone waveform driven by live mic amplitude](docs/assets/voice-interaction.png) |
+| Idle — waiting for a request | Listening — the waveform is real mic amplitude, not decorative |
+| ![Ring precisely on Uber's real Where to field, with the spoken instruction shown live](docs/assets/target-highlighting.png) | ![Assistant repositioned above the open keyboard, clear of it](docs/assets/keyboard-aware.png) |
+| Screen understanding + target highlighting — the ring sits on Uber's actual `Where to?` element, resolved from the live accessibility tree, not a hardcoded coordinate | Keyboard-aware — the overlay detects the IME and moves itself clear automatically |
 
 <details>
-<summary>More: the cursor animation and multilingual app choice</summary>
+<summary>Older captures: cursor animation and multilingual app choice (pre-dates the current overlay/target-resolution code — kept for history)</summary>
 
 | | |
 |---|---|
@@ -40,6 +56,8 @@ Real on-device screenshots, not mockups.
 | Detected Hindi → asked in Hindi → real installed apps | Same flow, detected Tamil → asked in Tamil |
 
 </details>
+
+**Not shown, and not faked:** a "thinking" state screenshot (too transient — under a second between listening and the next state — to capture meaningfully as a static image) and a movable/drag-in-progress capture (inherently a motion, not a moment). Both behaviors are real and covered by `docs/DEMO.md` and `docs/DECISIONS.md`; they just don't reduce to an honest screenshot.
 
 ## How it works
 
@@ -93,21 +111,10 @@ the current source of truth. See `docs/PARKING_LOT.md` for what's still
 deliberately deferred, and `CONTRIBUTING.md` before proposing anything that
 touches a core piece.
 
-## Installation
-
-**Fastest path — no build required:**
-
-1. **[Download the latest APK](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)** and install it (allow "install from unknown sources").
-2. Open ScreenSaathi and grant, in order: **Microphone** → **Display over other apps** → **Accessibility service**.
-3. Tap **Start assistant**, go to the home screen, tap the floating pill, and speak a request — e.g. *"Help me book a taxi."*
-
-A **physical Android device (8.0+)** is required — accessibility services,
-overlay windows and the microphone don't behave meaningfully on an emulator.
-
-**Building from source instead?** See [Build](#build) below, or the full
-walkthrough in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
-
 ## Build
+
+Building from source instead of using the release APK? Full walkthrough in
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). Short version:
 
 Create `local.properties` in the project root (it is gitignored):
 
@@ -195,3 +202,12 @@ rather than discovered by you later:
   verified via the on-device rehearsal buttons, but a live microphone run in
   Tamil specifically is still open. Don't take "multilingual" further than
   that until it is.
+
+## Contributing
+
+Bug reports, PRs and questions are welcome. If you're looking for a place to
+start, [`CONTRIBUTING.md`](CONTRIBUTING.md) has a "Good first contribution"
+section broken down by area (AI/agent, Android, vision/perception, UX,
+safety, developer experience). See [`ROADMAP.md`](ROADMAP.md) for what's
+shipped, in progress, and planned — and [`AGENTS.md`](AGENTS.md) if you're an
+AI coding agent picking this up.

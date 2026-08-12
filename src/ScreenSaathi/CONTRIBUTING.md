@@ -20,6 +20,37 @@ Bugs, prompt/planner improvements, UX polish, reliability, and performance work
 are always welcome without asking first — see `docs/PARKING_LOT.md` for what's
 already deliberately deferred.
 
+## Good first contribution
+
+Pick an area below — each maps to real, non-frozen surface area. See
+[`ROADMAP.md`](ROADMAP.md) for the current planned/in-progress list this
+feeds from, and `docs/DECISIONS.md` before touching anything it calls out as
+measured/dangerous.
+
+- **AI / agent** — planner prompt tuning (`sarvam/SarvamPlanner.kt`,
+  `planner_v1.md`), extending `StepEngine`'s deterministic fallback for a new
+  task, or adding a language column to `Phrases.kt` / `PillLabels.kt` (seven
+  of ten Sarvam languages still fall back to English UI chrome — see
+  `ROADMAP.md`).
+- **Android** — overlay/UX polish in `OverlayService.kt` and
+  `overlay/HighlightView.kt`, or a per-language TTS speaker instead of the
+  single `anand` voice used everywhere today.
+- **Vision / perception** — improving `TargetResolver`'s ranked-matching
+  scoring, or a fallback matching strategy for third-party button text
+  (`task/RideApps.kt` currently hardcodes Uber/Ola/Rapido's English copy with
+  no fallback — see `ROADMAP.md`).
+- **UX** — barge-in (interrupting the assistant mid-speech), or debug-panel
+  improvements (long-press the pill).
+- **Safety** — anything in `SafetyGuard`, or hardening `TargetResolver`'s
+  refuse-on-ambiguous behavior so it degrades safely on apps that expose very
+  little to accessibility.
+- **Developer experience** — new tasks under `app/src/main/assets/tasks/`
+  (pure JSON, no code — see the README's Contracts section), or expanding
+  test coverage in areas `docs/DECISIONS.md` flags as measured-not-obvious.
+
+Bugs, prompt/planner improvements, UX polish, reliability, and performance
+work never need a pre-approval issue — open the PR directly.
+
 ## Setup
 
 ```bash
