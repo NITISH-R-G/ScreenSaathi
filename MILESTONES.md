@@ -1,3 +1,8 @@
+> **Historical hackathon artifact.** This is the Tech for Good 2026 event
+> checklist, kept for record — it does not reflect current project status.
+> See [`ROADMAP.md`](ROADMAP.md) for what's actually shipped, in progress,
+> and planned today.
+
 # CODESTREAK — milestones
 
 Tick a box when it is true. Edit this file on GitHub (pencil icon, top right),

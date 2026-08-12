@@ -37,6 +37,9 @@ device, say so explicitly rather than claiming something works.
 4. **[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)** — device state that
    produces misleading symptoms (force-stop, stale accessibility binding,
    coordinate drift).
+5. **[`ROADMAP.md`](../../ROADMAP.md)** (repo root) — what's shipped, in
+   progress, and planned. Check it before proposing new work so you don't
+   duplicate something already tracked or already deliberately deferred.
 
 ## The rule that matters most
 

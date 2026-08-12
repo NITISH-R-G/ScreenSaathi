@@ -61,8 +61,8 @@ There is no in-app control to review what was sent, no opt-out of the cloud
 calls short of not configuring a Sarvam key (which disables the feature
 entirely and falls back to the deterministic `StepEngine`), and no on-device
 processing option. These are real gaps for anything beyond a demo — tracked
-in `docs/PARKING_LOT.md` and the GitHub issues referenced from
-`docs/AUDIT_FOLLOWUPS.md`.
+in `docs/PARKING_LOT.md` and the repository's issues labeled
+[`audit-followup`](https://github.com/NITISH-R-G/ScreenSaathi/issues?q=is%3Aissue+label%3Aaudit-followup).
 
 ## Permissions and why each one is requested
 

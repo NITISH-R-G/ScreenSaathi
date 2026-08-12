@@ -1,3 +1,10 @@
+> **Historical hackathon artifact.** This is the original pre-implementation
+> ideation submission (July 2026) — some of it (the eSanjeevani-specific
+> scope, the vision-model and Firebase/PostgreSQL stack) was never built and
+> does not describe the shipped app. See [`README.md`](README.md) and
+> [`docs/ARCHITECTURE.md`](src/ScreenSaathi/docs/ARCHITECTURE.md) for what
+> ScreenSaathi actually is today.
+
 # Architecture Proposal
 
 > Fill this out and commit it by **Friday, July 24 · 11:59 PM IST**. This file *is*
