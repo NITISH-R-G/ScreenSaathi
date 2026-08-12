@@ -1,33 +1,59 @@
 # ScreenSaathi
 
+### An open-source AI copilot that sees your Android screen and shows you exactly where to tap
+
 [![Android CI](https://github.com/NITISH-R-G/ScreenSaathi/actions/workflows/android.yml/badge.svg)](https://github.com/NITISH-R-G/ScreenSaathi/actions/workflows/android.yml)
 [![License: MIT](https://img.shields.io/github/license/NITISH-R-G/ScreenSaathi)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/kotlin-100%25-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Min SDK](https://img.shields.io/badge/minSdk-26-brightgreen)](app/build.gradle.kts)
+[![Latest release](https://img.shields.io/github/v/release/NITISH-R-G/ScreenSaathi)](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)
 
-A floating overlay for Android that listens in Hindi, Tamil, or English,
-figures out what you're trying to do, reads the screen through accessibility,
-flies a cursor to the field you need, and speaks the next instruction back
-**in the language you spoke it in.**
+Most voice assistants answer questions or launch apps. ScreenSaathi reads the
+**live UI through Android's Accessibility API**, resolves the *actual* button
+or field you need — not a hardcoded coordinate — and draws a ring around it.
+Then it waits for **you** to tap it. It never acts on your behalf.
 
-It is not a chatbot and not a generic voice assistant. It points at the thing
-you should touch next, tells you why, in your language, and gets out of the
-way. Built solo in a single hackathon push — see [Honest limitations](#honest-limitations-read-this-before-you-get-excited)
-before you assume more than that.
+Built for people who find modern app interfaces hard to navigate: it listens
+in Hindi, Tamil or English, and answers back in whichever one you spoke.
+
+**[⬇ Download the demo APK](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)** — no build required, see [Installation](#installation) below.
 
 ## What it looks like
 
-The cursor is the point of the whole project: it doesn't just draw a static
-ring, it *flies* to the target field along an arc, trailing behind it, tethered
-back to the pill — then the ring blooms once it arrives. These are real
-on-device screenshots, not mockups.
+Real on-device screenshots, not mockups.
+
+| | |
+|---|---|
+| ![Idle assistant, compact pill](docs/screenshots/screen-saathi-idle.png) | ![Listening, real microphone waveform](docs/screenshots/screen-saathi-listening.png) |
+| Idle — compact, out of the way | Listening — one real waveform, driven by actual mic amplitude |
+| ![Ring precisely on Uber's Where to field](docs/screenshots/screen-saathi-highlight.png) | ![Assistant lifted above the open keyboard](docs/screenshots/screen-saathi-keyboard.png) |
+| The ring on Uber's real `Where to?` element — resolved, not hardcoded | Moves itself clear of the keyboard automatically |
+
+<details>
+<summary>More: the cursor animation and multilingual app choice</summary>
 
 | | |
 |---|---|
 | ![The cursor lands on a field and the ring blooms around it](docs/screenshots/cursor-and-ring.png) | ![The cursor travels to the next field, tether visible](docs/screenshots/cursor-travels-to-next-field.png) |
-| Cursor arrives, ring blooms, instruction spoken | It *travels* between fields — this is the differentiator |
+| Cursor arrives, ring blooms, instruction spoken | It *travels* between fields |
 | ![The assistant asks which ride app to use, in Hindi, with the real installed apps listed](docs/screenshots/hindi-app-choice.png) | ![The same question, rendered in Tamil](docs/screenshots/tamil-instruction.png) |
-| Detected Hindi → asked in Hindi → real installed apps (Uber/Ola/Rapido) | Same flow, detected Tamil → asked in Tamil |
+| Detected Hindi → asked in Hindi → real installed apps | Same flow, detected Tamil → asked in Tamil |
+
+</details>
+
+## How it works
+
+```
+Voice  →  Intent (Sarvam STT + planner)  →  Screen perception (Accessibility API)
+       →  Target resolution (ranked, app-agnostic)  →  Visual highlight
+       →  User taps it themselves  →  Screen-change detected  →  re-perceive  →  repeat
+```
+
+Full breakdown: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). The *why*
+behind the less obvious choices: [`docs/DECISIONS.md`](docs/DECISIONS.md).
+
+Built solo in a single hackathon push — see [Honest limitations](#honest-limitations-read-this-before-you-get-excited)
+before you assume more than what's demonstrated above.
 
 ## Architecture
 
@@ -59,10 +85,27 @@ deterministic core that completes the task with **no network at all** — every
 one of the four network calls above can fail and the app still finishes the
 task in scripted order.
 
-Architecture is **frozen** after M1: no sixth subsystem, no field ever removed
-from a contract in `contracts/`. See `docs/PARKING_LOT.md` for what's
+This diagram is the **M1 milestone** shape — frozen at the time, no field ever
+removed from a contract in `contracts/`. Real subsystems added since (target
+resolution, the movable/keyboard-aware overlay, the voice waveform, the
+launcher) are documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
+the current source of truth. See `docs/PARKING_LOT.md` for what's still
 deliberately deferred, and `CONTRIBUTING.md` before proposing anything that
-touches one of the five pieces.
+touches a core piece.
+
+## Installation
+
+**Fastest path — no build required:**
+
+1. **[Download the latest APK](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)** and install it (allow "install from unknown sources").
+2. Open ScreenSaathi and grant, in order: **Microphone** → **Display over other apps** → **Accessibility service**.
+3. Tap **Start assistant**, go to the home screen, tap the floating pill, and speak a request — e.g. *"Help me book a taxi."*
+
+A **physical Android device (8.0+)** is required — accessibility services,
+overlay windows and the microphone don't behave meaningfully on an emulator.
+
+**Building from source instead?** See [Build](#build) below, or the full
+walkthrough in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 ## Build
 
