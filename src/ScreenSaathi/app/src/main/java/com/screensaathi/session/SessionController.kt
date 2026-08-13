@@ -922,6 +922,16 @@ class SessionController(
         )
     }
 
+    /**
+     * Set the session language without going through STT.
+     *
+     * Used by the rehearsal entry points, which skip Saaras entirely. The
+     * voice path sets this from the detected language instead.
+     */
+    fun setLanguage(code: String) {
+        lastLanguage = Language.normalize(code)
+    }
+
     /** Localised prompt for the empty selection surface. */
     fun selectionHint(): String =
         Phrases.get(Phrases.Key.CIRCLE_HINT, lastLanguage).text

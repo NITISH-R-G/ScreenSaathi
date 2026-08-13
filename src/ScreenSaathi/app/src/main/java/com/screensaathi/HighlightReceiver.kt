@@ -75,8 +75,13 @@ class HighlightReceiver : BroadcastReceiver() {
             ACTION_ASK -> {
                 val q = intent.getStringExtra("query").orEmpty()
                 if (q.isBlank()) return
-                Log.d(TAG, "SELECT_ASK query='$q'")
-                OverlayService.askAboutSelection(context, q)
+                // Optional: the voice path gets this from Saaras, but a
+                // rehearsal skips STT, so without it a Hindi request would be
+                // answered in English and the multilingual path would look
+                // broken when it is only untested.
+                val lang = intent.getStringExtra("language")
+                Log.d(TAG, "SELECT_ASK query='$q' language='${lang ?: "(session)"}'")
+                OverlayService.askAboutSelection(context, q, lang)
             }
             ACTION_START_SELECTION -> OverlayService.startSelection(context)
         }

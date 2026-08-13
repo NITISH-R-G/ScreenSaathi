@@ -5,6 +5,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 /**
  * [CircleSession] with the accessibility service absent, which is also the
@@ -115,6 +117,36 @@ class CircleSessionTest {
 
         assertEquals(2, s.context!!.turns.size)
         assertEquals(CircleIntent.GUIDANCE, s.context!!.turns.last().intent)
+    }
+
+    /**
+     * Regression: found on device. Ten consecutive selections left seventeen
+     * crop PNGs in cacheDir — each new selection wrote one without releasing
+     * the previous, so nothing was ever reclaimed until clear() happened to be
+     * called. Verified here via the crop directory rather than the bitmap,
+     * since Bitmap is stubbed in the JVM test runtime.
+     */
+    @Test
+    fun `a new selection deletes the previous selection's crop`() {
+        val dir = Files.createTempDirectory("circle-crops").toFile()
+        try {
+            val stale = File(dir, "circle_selection_1.png").apply { writeText("x") }
+            val s = CircleSession(
+                capture = DeferredCapture(isAvailable = false),
+                vision = NoOpVisionProvider,
+                readerProvider = { null },
+                cacheDirProvider = { dir },
+                clock = { 1_000L },
+            )
+
+            s.onSelectionDrawn(path(), SelectionShape.FREEFORM, "en-IN") {}
+
+            // The orphan prune runs on first selection and clears strays left
+            // behind by a previous process.
+            assertTrue(!stale.exists())
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 
     @Test

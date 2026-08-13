@@ -811,9 +811,10 @@ class OverlayService : Service() {
         }
 
         /** Ask about the live selection without going through STT. */
-        fun askAboutSelection(context: Context, query: String) {
+        fun askAboutSelection(context: Context, query: String, language: String? = null) {
             val svc = live ?: return
             svc.main.post {
+                language?.let { svc.controller.setLanguage(it) }
                 if (!svc.controller.onCircleRequest(query)) {
                     // No selection, or an informational question the tree
                     // cannot answer — fall back to the ordinary highlight path
