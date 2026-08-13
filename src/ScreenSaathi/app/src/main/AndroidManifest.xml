@@ -98,6 +98,9 @@
                 <action android:name="com.screensaathi.HIGHLIGHT" />
                 <action android:name="com.screensaathi.CLEAR_HIGHLIGHT" />
                 <action android:name="com.screensaathi.DUMP_SCREEN" />
+                <action android:name="com.screensaathi.SELECT" />
+                <action android:name="com.screensaathi.SELECT_ASK" />
+                <action android:name="com.screensaathi.START_SELECTION" />
             </intent-filter>
         </receiver>
 

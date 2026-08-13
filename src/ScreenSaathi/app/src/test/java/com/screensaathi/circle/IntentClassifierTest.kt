@@ -77,6 +77,49 @@ class IntentClassifierTest {
         assertEquals(CircleIntent.UNKNOWN, IntentClassifier.classify("   "))
     }
 
+    /**
+     * Regression: found on device. "okay help me use it" is the canonical
+     * follow-up after "what is this?", and it matched no keyword list at all —
+     * so it fell through to UNKNOWN and the caller searched the screen for the
+     * literal sentence, which can never match anything.
+     */
+    @Test
+    fun `the canonical follow up phrasing is guidance, not unknown`() {
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("okay help me use it"))
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("Okay, help me use it."))
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("help me with this"))
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("show me how"))
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("walk me through this"))
+
+        assertTrue(IntentClassifier.classify("okay help me use it").isAgentic)
+    }
+
+    @Test
+    fun `follow up guidance phrasing works in hindi and tamil`() {
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("इसे इस्तेमाल करने में मदद कीजिए"))
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("இதைப் பயன்படுத்த உதவுங்கள்"))
+    }
+
+    /**
+     * A bare "help me" is not guidance on its own — it pairs with whatever
+     * verb follows. When a concrete action verb is present, that wins.
+     */
+    @Test
+    fun `bare help plus an action verb stays an action`() {
+        assertEquals(CircleIntent.ACTION, IntentClassifier.classify("इसे बुक करने में मदद करो"))
+        assertEquals(CircleIntent.ACTION, IntentClassifier.classify("help me book this"))
+        assertEquals(CircleIntent.ACTION, IntentClassifier.classify("help me pay this"))
+    }
+
+    /**
+     * "how do I book this?" asks to be taught; it must not be executed as an
+     * ACTION just because it contains "book".
+     */
+    @Test
+    fun `an interrogative containing an action verb stays guidance`() {
+        assertEquals(CircleIntent.GUIDANCE, IntentClassifier.classify("how do i book this"))
+    }
+
     @Test
     fun `only agentic intents hand off to the agent loop`() {
         assertTrue(CircleIntent.ACTION.isAgentic)

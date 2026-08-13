@@ -51,6 +51,34 @@ class HighlightReceiver : BroadcastReceiver() {
                 Log.d(TAG, "HIGHLIGHT_CLEAR")
                 OverlayService.clearHighlight(context)
             }
+            // Circle mode without a finger. Same selection resolver and the
+            // same context the drawn gesture produces — only the touch input
+            // is synthesised — so this exercises the real pipeline rather than
+            // a test double, and makes the interaction scriptable over adb:
+            //
+            //   adb shell am broadcast -n com.screensaathi/.HighlightReceiver \
+            //     -a com.screensaathi.SELECT --ei left 100 --ei top 500 \
+            //     --ei right 900 --ei bottom 600
+            ACTION_SELECT -> {
+                val left = intent.getIntExtra("left", -1)
+                val top = intent.getIntExtra("top", -1)
+                val right = intent.getIntExtra("right", -1)
+                val bottom = intent.getIntExtra("bottom", -1)
+                if (left < 0 || top < 0 || right <= left || bottom <= top) {
+                    Log.w(TAG, "SELECT_REQUEST ignored: need left/top/right/bottom")
+                    return
+                }
+                Log.d(TAG, "SELECT_REQUEST [$left,$top][$right,$bottom]")
+                OverlayService.selectRegion(context, left, top, right, bottom)
+            }
+            // Ask about whatever is currently selected, skipping STT.
+            ACTION_ASK -> {
+                val q = intent.getStringExtra("query").orEmpty()
+                if (q.isBlank()) return
+                Log.d(TAG, "SELECT_ASK query='$q'")
+                OverlayService.askAboutSelection(context, q)
+            }
+            ACTION_START_SELECTION -> OverlayService.startSelection(context)
         }
     }
 
@@ -58,6 +86,9 @@ class HighlightReceiver : BroadcastReceiver() {
         const val ACTION_HIGHLIGHT = "com.screensaathi.HIGHLIGHT"
         const val ACTION_CLEAR = "com.screensaathi.CLEAR_HIGHLIGHT"
         const val ACTION_DUMP = "com.screensaathi.DUMP_SCREEN"
+        const val ACTION_SELECT = "com.screensaathi.SELECT"
+        const val ACTION_ASK = "com.screensaathi.SELECT_ASK"
+        const val ACTION_START_SELECTION = "com.screensaathi.START_SELECTION"
         private const val TAG = "HighlightReceiver"
     }
 }

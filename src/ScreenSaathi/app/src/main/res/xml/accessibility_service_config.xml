@@ -2,12 +2,21 @@
 <!--
   Read-only screen context. Deliberately NOT requesting
   canPerformGestures — ScreenSaathi points and speaks, it does not act.
+
+  canTakeScreenshot is required for circle mode: takeScreenshot() throws
+  "Services don't have the capability of taking the screenshot" without it.
+  It is used on demand, once per completed selection — never on a timer — and
+  the pixels are cropped to the selection, cached, and deleted when the
+  selection is cleared. Chosen over MediaProjection because this service is
+  already permitted to read this screen; MediaProjection would add a second,
+  louder consent flow for strictly less capability. See docs/DATA_HANDLING.md.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewFocused|typeViewTextChanged|typeViewScrolled|typeViewClicked|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagIncludeNotImportantViews|flagReportViewIds|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100"
     android:settingsActivity="com.screensaathi.MainActivity" />

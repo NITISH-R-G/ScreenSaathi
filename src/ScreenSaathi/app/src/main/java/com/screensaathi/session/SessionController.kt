@@ -9,6 +9,13 @@ import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.Log
 import com.screensaathi.AppLauncher
+import com.screensaathi.circle.AccessibilityScreenCapture
+import com.screensaathi.circle.CircleContext
+import com.screensaathi.circle.CircleIntent
+import com.screensaathi.circle.CircleSession
+import com.screensaathi.circle.IntentClassifier
+import com.screensaathi.circle.SelectionPoint
+import com.screensaathi.circle.SelectionShape
 import com.screensaathi.device.DeviceContextProvider
 import androidx.core.content.ContextCompat
 import com.screensaathi.ScreenReaderService
@@ -387,6 +394,15 @@ class SessionController(
                 onChoiceTapped(matchIdx)
                 return
             }
+        }
+
+        // A live circle selection claims the request first: "help me pay this"
+        // only means anything relative to what "this" was. onCircleRequest
+        // returns false for an informational question it cannot answer from
+        // the accessibility tree alone, which falls through to the normal
+        // planner path below with the selection added to its prompt context.
+        if (circle.context != null && onCircleRequest(sttResult.transcript)) {
+            return
         }
 
         val task = pickTask(sttResult.transcript)
@@ -891,6 +907,189 @@ class SessionController(
      * and drops it the moment the target stops existing.
      */
     /** Drop any ring and end the current turn. */
+    // --- Circle selection mode ------------------------------------------------
+
+    /**
+     * Circle mode state. Held here rather than in the overlay because the
+     * selection has to outlive the drawing surface — the whole point is that
+     * "okay, help me use it" still knows what "it" was, several turns later.
+     */
+    private val circle: CircleSession by lazy {
+        CircleSession(
+            capture = AccessibilityScreenCapture(),
+            readerProvider = { ScreenReaderService.instance },
+            cacheDirProvider = { context.cacheDir },
+        )
+    }
+
+    /** Localised prompt for the empty selection surface. */
+    fun selectionHint(): String =
+        Phrases.get(Phrases.Key.CIRCLE_HINT, lastLanguage).text
+
+    /** Collapse out of the way so the assistant does not cover the target. */
+    fun onSelectionModeEntered() {
+        val turn = newTurn()
+        renderIfCurrent(turn, OverlayCommand(PillState.IDLE, expanded = false, highlight = null))
+    }
+
+    fun onSelectionModeExited() {
+        // Nothing to undo: the selection window is the overlay's to remove,
+        // and any resolved context deliberately survives leaving the surface.
+    }
+
+    /**
+     * A selection was drawn. Resolve it, then invite a question.
+     *
+     * This does not answer anything yet — the user has selected a thing but
+     * not said what they want with it. The response to that request is routed
+     * in [onCircleRequest], which is where the question-vs-action fork lives.
+     */
+    fun onSelectionDrawn(path: List<SelectionPoint>, shape: SelectionShape) {
+        val turn = newTurn()
+        stopped = false
+
+        circle.onSelectionDrawn(path, shape, lastLanguage) { ctx ->
+            // Invoked again when pixels land; only the first pass should
+            // speak, otherwise the user hears the same sentence twice.
+            if (ctx.frame != null) return@onSelectionDrawn
+            // render() marshals to the main thread itself, so this is safe
+            // from the capture callback's background thread.
+            describeSelection(turn, ctx)
+        }
+    }
+
+    /**
+     * Say what was selected, honestly.
+     *
+     * Three outcomes, and the third is the one that matters most: a purely
+     * visual region gets an explicit "I'd need visual understanding" rather
+     * than a guess. For a tool whose users often cannot check the answer
+     * themselves, a confident wrong description is worse than no description.
+     */
+    private fun describeSelection(turn: Int, ctx: CircleContext) {
+        if (!isCurrent(turn)) return
+
+        val element = ctx.target.element
+        val lead = when {
+            element != null && element.text.isNotBlank() ->
+                Phrases.get(Phrases.Key.CIRCLE_FOUND, lastLanguage)
+                    .let { it.copy(text = String.format(it.text, element.text.trim())) }
+
+            ctx.target.selectedText.isNotBlank() ->
+                Phrases.get(Phrases.Key.CIRCLE_SELECTED_TEXT, lastLanguage)
+                    .let { it.copy(text = String.format(it.text, ctx.target.selectedText.take(80))) }
+
+            ctx.needsVision -> Phrases.get(Phrases.Key.CIRCLE_NEEDS_VISION, lastLanguage)
+
+            else -> Phrases.get(Phrases.Key.CIRCLE_NOTHING_FOUND, lastLanguage)
+        }
+
+        val ask = Phrases.get(Phrases.Key.CIRCLE_ASK, lastLanguage)
+        val resolved = element != null || ctx.target.selectedText.isNotBlank()
+
+        renderIfCurrent(
+            turn,
+            OverlayCommand(
+                if (resolved) PillState.IDLE else PillState.ERROR,
+                expanded = true,
+                instruction = if (resolved) "${lead.text} ${ask.text}" else lead.text,
+                language = lead.language,
+                highlight = null,
+            ),
+        )
+        speak(lead, turn)
+
+        publishDebug(turn) {
+            it.copy(
+                wantResourceId = element?.resourceId.orEmpty().ifEmpty { element?.text ?: "(none)" },
+                confidence = ctx.target.confidence / 100.0,
+                note = "CIRCLE_RESOLVED ${ctx.target.reason}",
+            )
+        }
+    }
+
+    /**
+     * A request made about the current selection.
+     *
+     * The fork that separates this from ordinary circle-to-search: an
+     * informational question is answered in place, an actionable one is handed
+     * to the existing agent loop via [highlightTarget] — the same resolver,
+     * overlay and screen-change invalidation the voice path already uses. No
+     * second agent framework.
+     *
+     * Returns false when there is no live selection, so the caller can fall
+     * back to the ordinary voice path.
+     */
+    fun onCircleRequest(request: String): Boolean {
+        val ctx = circle.context ?: return false
+        val intent = IntentClassifier.classify(request)
+
+        circle.addTurn(request, intent, "")
+
+        when {
+            // Actionable, and the selection named something we can point at.
+            intent.isAgentic && ctx.target.element?.text?.isNotBlank() == true -> {
+                val label = ctx.target.element!!.text.trim()
+                Log.d(TAG, "CIRCLE_AGENTIC intent=$intent target=\"$label\"")
+                highlightTarget(label)
+            }
+
+            // Actionable, but nothing nameable was selected — say so instead
+            // of highlighting something arbitrary.
+            intent.isAgentic -> {
+                val turn = newTurn()
+                val phrase = if (ctx.needsVision) {
+                    Phrases.get(Phrases.Key.CIRCLE_NEEDS_VISION, lastLanguage)
+                } else {
+                    Phrases.get(Phrases.Key.CIRCLE_NOTHING_FOUND, lastLanguage)
+                }
+                renderIfCurrent(turn, OverlayCommand(PillState.ERROR, expanded = true,
+                    instruction = phrase.text, language = phrase.language))
+                speak(phrase, turn)
+            }
+
+            // Informational about a region we cannot see into.
+            ctx.needsVision -> {
+                val turn = newTurn()
+                val phrase = Phrases.get(Phrases.Key.CIRCLE_NEEDS_VISION, lastLanguage)
+                renderIfCurrent(turn, OverlayCommand(PillState.IDLE, expanded = true,
+                    instruction = phrase.text, language = phrase.language))
+                speak(phrase, turn)
+            }
+
+            // Unclear, but something is selected. Ask which way to go rather
+            // than falling through to a screen search for the sentence itself
+            // — "okay help me use it" is not a label on any screen, so
+            // searching for it can only ever fail and look broken.
+            intent == CircleIntent.UNKNOWN -> {
+                val turn = newTurn()
+                val label = ctx.target.element?.text?.trim()
+                    ?: ctx.target.selectedText.take(40)
+                val phrase = Phrases.get(Phrases.Key.CIRCLE_CLARIFY, lastLanguage)
+                    .let { it.copy(text = String.format(it.text, label)) }
+                Log.d(TAG, "CIRCLE_CLARIFY request=\"$request\"")
+                renderIfCurrent(turn, OverlayCommand(PillState.IDLE, expanded = true,
+                    instruction = phrase.text, language = phrase.language))
+                speak(phrase, turn)
+            }
+
+            // Informational, and the tree can answer. The planner does the
+            // real work here; it already receives the screen, and the
+            // selection is added to its context by toPromptText().
+            else -> {
+                Log.d(TAG, "CIRCLE_INFORMATIONAL intent=$intent")
+                return false
+            }
+        }
+        return true
+    }
+
+    /** Drop the selection and its cached pixels. */
+    fun clearCircleSelection() = circle.clear()
+
+    /** The live selection rendered for the planner prompt, or empty. */
+    fun circlePromptContext(): String = circle.context?.toPromptText().orEmpty()
+
     fun clearHighlight() {
         val turn = newTurn()
         currentHighlight = null

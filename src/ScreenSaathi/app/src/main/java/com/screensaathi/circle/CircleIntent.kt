@@ -81,8 +81,18 @@ object IntentClassifier {
 
     private val GUIDANCE = listOf(
         "how do i", "how can i", "how to use", "how does this work", "teach me",
+        // The canonical follow-up: the user has already selected something and
+        // now wants to be walked through it. Matched here rather than in
+        // ACTION because it asks to be guided, not for the step to be taken.
+        "help me use", "help me with", "help me do", "walk me through",
+        "show me how", "use this", "use it",
         "कैसे करूँ", "कैसे इस्तेमाल", "कैसे उपयोग",
+        // Compound only. A bare "मदद करो" / "உதவுங்கள்" is just "help me",
+        // which pairs with any verb — "इसे बुक करने में मदद करो" is a booking
+        // request, not a request to be taught, and the action verb must win.
+        "इस्तेमाल करने में मदद", "उपयोग करने में मदद",
         "எப்படி பயன்படுத்த", "எப்படி செய்",
+        "பயன்படுத்த உதவ",
     )
 
     private val INFORMATION = listOf(

@@ -70,6 +70,9 @@ class OverlayService : Service() {
     /** The window params we own, so drag/placement writes one object. */
     private var pillParams: WindowManager.LayoutParams? = null
 
+    /** Present only while the user is drawing a selection. */
+    private var selectionView: com.screensaathi.circle.CircleSelectionView? = null
+
     /** Where the *user* put it. The keyboard may move the live window off
      *  this temporarily; this is what it returns to. */
     private var userX = 0
@@ -135,6 +138,8 @@ class OverlayService : Service() {
                 val index = intent.getIntExtra(EXTRA_CHOICE, -1)
                 if (index >= 0) main.post { controller.onChoiceTapped(index) }
             }
+            ACTION_START_SELECTION -> main.post { enterSelectionMode() }
+            ACTION_CANCEL_SELECTION -> main.post { exitSelectionMode() }
         }
         return START_STICKY
     }
@@ -192,6 +197,13 @@ class OverlayService : Service() {
             true
         }
         micButton.setOnClickListener { controller.onMicTapped() }
+        // Circle mode. Long-press on the *mic*, not the pill row — that one is
+        // already the debug panel (docs/PARKING_LOT.md calls it the real triage
+        // tool), and taking it would trade a working diagnostic for a feature.
+        micButton.setOnLongClickListener {
+            enterSelectionMode()
+            true
+        }
         // While listening the mic is gone; the wave is what's under the
         // finger, so it has to end the turn too.
         waveform.setOnClickListener { controller.onMicTapped() }
@@ -480,6 +492,71 @@ class OverlayService : Service() {
         waveform.setLevel(0f)
     }
 
+    // --- Circle selection mode ------------------------------------------------
+
+    /**
+     * Show the draw-around-something surface.
+     *
+     * A separate window, added only for the duration of the gesture. It has to
+     * be touchable (to receive the stroke) and focusable (to receive BACK),
+     * which is exactly why it cannot be folded into the existing highlight
+     * window — that one is deliberately FLAG_NOT_TOUCHABLE so taps reach the
+     * app underneath.
+     */
+    private fun enterSelectionMode() {
+        if (selectionView != null) return
+
+        val view = com.screensaathi.circle.CircleSelectionView(
+            context = this,
+            onSelectionComplete = { path, shape -> onSelectionDrawn(path, shape) },
+            onCancel = { main.post { exitSelectionMode() } },
+        )
+        view.setHint(controller.selectionHint())
+
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            overlayType(),
+            // Focusable on purpose — BACK must cancel selection. FLAG_WATCH_
+            // OUTSIDE_TOUCH is not needed since this covers the whole screen.
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            android.graphics.PixelFormat.TRANSLUCENT,
+        )
+
+        runCatching { wm.addView(view, lp) }
+            .onFailure {
+                android.util.Log.w(TAG_UI, "could not add selection window", it)
+                return
+            }
+
+        selectionView = view
+        view.requestFocus()
+
+        // Get the assistant out of the way of the thing being circled.
+        controller.onSelectionModeEntered()
+    }
+
+    private fun exitSelectionMode() {
+        val view = selectionView ?: return
+        selectionView = null
+        runCatching { wm.removeView(view) }
+        controller.onSelectionModeExited()
+    }
+
+    private fun onSelectionDrawn(
+        path: List<com.screensaathi.circle.SelectionPoint>,
+        shape: com.screensaathi.circle.SelectionShape,
+    ) {
+        main.post {
+            // Take the surface down before resolving: the accessibility
+            // snapshot must not include our own dimmed selection window, and
+            // the user should see their screen again immediately.
+            exitSelectionMode()
+            controller.onSelectionDrawn(path, shape)
+        }
+    }
+
     private fun overlayType(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -634,6 +711,10 @@ class OverlayService : Service() {
         if (live === this) live = null
         stopLevelPump()
         controller.dispose()
+        // Selection mode may still be up if the service is torn down mid-gesture;
+        // a leaked full-screen touchable window would swallow every tap.
+        selectionView?.let { runCatching { wm.removeView(it) } }
+        selectionView = null
         runCatching { wm.removeView(highlightView) }
         runCatching { wm.removeView(pillRoot) }
         // Only a real teardown clears this — a genuinely new overlay lifetime
@@ -673,6 +754,8 @@ class OverlayService : Service() {
         const val ACTION_CHOOSE = "com.screensaathi.CHOOSE"
         const val ACTION_HIGHLIGHT = "com.screensaathi.HIGHLIGHT"
         const val ACTION_CLEAR_HIGHLIGHT = "com.screensaathi.CLEAR_HIGHLIGHT"
+        const val ACTION_START_SELECTION = "com.screensaathi.START_SELECTION"
+        const val ACTION_CANCEL_SELECTION = "com.screensaathi.CANCEL_SELECTION"
         const val EXTRA_QUERY = "query"
         const val EXTRA_TASK_ID = "task_id"
         const val EXTRA_LANGUAGE = "language"
@@ -696,6 +779,48 @@ class OverlayService : Service() {
             context.startService(
                 Intent(context, OverlayService::class.java).setAction(ACTION_CLEAR_HIGHLIGHT)
             )
+        }
+
+        /** Open the draw-a-selection surface. */
+        fun startSelection(context: Context) {
+            context.startService(
+                Intent(context, OverlayService::class.java).setAction(ACTION_START_SELECTION)
+            )
+        }
+
+        /**
+         * Resolve a rectangular region as though the user had drawn it.
+         *
+         * Goes through the identical selection path as the gesture — same
+         * resolver, same context, same phrasing — so a scripted run is a real
+         * exercise of the feature and not a shortcut around it.
+         */
+        fun selectRegion(context: Context, left: Int, top: Int, right: Int, bottom: Int) {
+            val svc = live ?: return
+            svc.main.post {
+                svc.controller.onSelectionDrawn(
+                    listOf(
+                        com.screensaathi.circle.SelectionPoint(left, top),
+                        com.screensaathi.circle.SelectionPoint(right, top),
+                        com.screensaathi.circle.SelectionPoint(right, bottom),
+                        com.screensaathi.circle.SelectionPoint(left, bottom),
+                    ),
+                    com.screensaathi.circle.SelectionShape.FREEFORM,
+                )
+            }
+        }
+
+        /** Ask about the live selection without going through STT. */
+        fun askAboutSelection(context: Context, query: String) {
+            val svc = live ?: return
+            svc.main.post {
+                if (!svc.controller.onCircleRequest(query)) {
+                    // No selection, or an informational question the tree
+                    // cannot answer — fall back to the ordinary highlight path
+                    // so the request still does something visible.
+                    svc.controller.highlightTarget(query)
+                }
+            }
         }
 
         fun choose(context: Context, index: Int) {
