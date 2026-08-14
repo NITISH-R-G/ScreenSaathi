@@ -1040,8 +1040,32 @@ class SessionController(
             // Actionable, and the selection named something we can point at.
             intent.isAgentic && ctx.target.element?.text?.isNotBlank() == true -> {
                 val label = ctx.target.element!!.text.trim()
-                Log.d(TAG, "CIRCLE_AGENTIC intent=$intent target=\"$label\"")
-                highlightTarget(label)
+
+                // Policy runs after the intent is known and before anything is
+                // rendered. The classifier proposes; this decides.
+                val ruling = ActionPolicy.evaluate(label)
+                Log.d(TAG, "CIRCLE_AGENTIC intent=$intent target=\"$label\" policy=${ruling.level}")
+
+                when {
+                    !ruling.isPermitted -> {
+                        val turn = newTurn()
+                        renderIfCurrent(turn, OverlayCommand(PillState.ERROR, expanded = true,
+                            instruction = ruling.reason, language = lastLanguage))
+                    }
+
+                    ruling.requiresConfirmation -> {
+                        // Point at it, but say plainly what it is before the
+                        // user commits. ScreenSaathi does not tap, so the
+                        // highlight plus this sentence is the confirmation
+                        // step — the user's own finger is the final gate.
+                        val turn = newTurn()
+                        renderIfCurrent(turn, OverlayCommand(PillState.GUIDING, expanded = true,
+                            instruction = ruling.reason, language = lastLanguage))
+                        highlightTarget(label)
+                    }
+
+                    else -> highlightTarget(label)
+                }
             }
 
             // Actionable, but nothing nameable was selected — say so instead

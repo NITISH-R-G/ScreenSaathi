@@ -1,5 +1,7 @@
 package com.screensaathi.circle
 
+import com.screensaathi.ai.PerceptionStrategy
+
 /**
  * What the user circled, and everything since.
  *
@@ -42,12 +44,24 @@ data class CircleContext(
     val hasAccessibilityTarget: Boolean get() = target.isResolved
 
     /**
+     * How this selection should be understood: tree alone, tree plus pixels,
+     * or pixels only.
+     *
+     * Delegated to [com.screensaathi.ai.PerceptionStrategy] so there is a
+     * single place where escalation is decided. Duplicating the rule here is
+     * how the two drift and the assistant starts saying one thing while the
+     * router does another.
+     */
+    val perception: PerceptionStrategy.Decision
+        get() = PerceptionStrategy.decide(target)
+
+    /**
      * A selection with pixels but nothing the tree can name — a photo, an
      * icon, a product image. This is the case that needs a vision provider,
      * and the case where the assistant must say so instead of guessing.
      */
     val needsVision: Boolean
-        get() = !target.isResolved && target.selectedText.isBlank()
+        get() = perception.mode == PerceptionStrategy.Mode.VISION_ONLY
 
     val isAgentActive: Boolean get() = activeTaskId != null
 
