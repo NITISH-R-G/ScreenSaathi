@@ -1,0 +1,47 @@
+name: Deploy site
+
+# The landing page is static and self-contained, so this only uploads the
+# folder — there is no build step to break.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let an in-flight deploy finish rather than cancelling it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the page references only files that exist
+        run: |
+          cd site
+          fail=0
+          # every local src/href in the html must resolve on disk
+          for ref in $(grep -oE '(src|href)="(assets/[^"]+)"' index.html | sed -E 's/.*"(assets[^"]*)"/\1/' | sort -u); do
+            if [ ! -f "$ref" ]; then echo "MISSING: $ref"; fail=1; fi
+          done
+          exit $fail
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
