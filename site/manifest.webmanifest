@@ -1,0 +1,14 @@
+{
+  "name": "ScreenSaathi",
+  "short_name": "ScreenSaathi",
+  "description": "An agentic AI layer for Android. Understands the live screen, resolves the exact control you need, and shows you where to tap.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B0B12",
+  "theme_color": "#0B0B12",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

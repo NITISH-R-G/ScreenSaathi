@@ -10,7 +10,12 @@
 [![Min SDK](https://img.shields.io/badge/minSdk-26-brightgreen)](src/ScreenSaathi/app/build.gradle.kts)
 [![Latest release](https://img.shields.io/github/v/release/NITISH-R-G/ScreenSaathi)](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)
 
-**[⬇ Download the demo APK](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)** — no build required. Jump to [Install](#install).
+**[🌐 Website](https://nitish-r-g.github.io/ScreenSaathi/)** ·
+**[📱 Download APK](https://github.com/NITISH-R-G/ScreenSaathi/releases/latest)** ·
+**[🤝 Contribute](src/ScreenSaathi/CONTRIBUTING.md)** ·
+**[🗺️ Roadmap](ROADMAP.md)**
+
+No build required to try it — the APK is on the releases page. Jump to [Install](#install).
 
 ---
 
