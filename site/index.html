@@ -26,9 +26,6 @@
 <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
-
-<!-- The hero screenshot is the LCP element; fetch it with the document
-     rather than after CSS resolves, and keep it out of the lazy queue. -->
 <link rel="preload" as="image" href="assets/idle.png" fetchpriority="high">
 
 <script type="application/ld+json">
@@ -47,69 +44,61 @@
 
 <style>
 /* ==========================================================================
-   ScreenSaathi — visual system
+   ScreenSaathi — visual system v2
 
-   ONE SPECTRUM, NOT THREE COLOURS.
-   The page does not have a blue section, a violet section and an orange
-   section. It has a single position along a continuous spectrum, held in
-   --flow, recomputed once per frame from scroll position and inherited by
-   every element that expresses state. Colour is a readout of where you are
-   in the product's own loop:
+   THREE HUES, ONE MEANING EACH. NOT DECORATION.
+       #3D6BFF  perceive   the accessibility tree
+       #7C5CFF  reason     PerceptionStrategy / ModelRouter
+       #FF7A2F  act        ActionPolicy / HighlightView / OverlayService
 
-       perceive ──────────── reason ──────────── act
-       #3D6BFF              #7C5CFF             #FF7A2F
-       accessibility tree   PerceptionStrategy  HighlightView
-                            ModelRouter         OverlayService
+   Two channels carry colour, and they are deliberately separate:
 
-   ONE GEOMETRIC UNIT.
-   Every ring on this page — the mark, the hero field, the section indicator,
-   the closing CTA — is the same construction: a unit repeated around a
-   centre. Concentric, quiet alone, meaningful as a whole. A ring because a
-   ring is literally what the product draws on screen.
+     --flow   where you are in the PAGE. Driven by scroll. Ambient.
+     --st     what the AGENT is doing. Driven by the state machine.
 
-   MOTION IS COMPOSITOR-ONLY.
-   transform / opacity / filter. Nothing animates layout. One rAF loop drives
-   every continuous value; discrete reveals are IntersectionObserver +
-   transition. All of it is gated on prefers-reduced-motion.
+   v1 drove everything from --flow, so the hero printed "ACT" in blue while
+   the agent was acting. State colour now comes from the beat that caused it.
+
+   ONE GEOMETRIC UNIT: the ring, repeated at every scale — mark, selection,
+   focus, architecture bead, completion. A ring because a ring is literally
+   what the product draws on screen.
+
+   CHROME IS EARNED. Borders, fills and radii are spent on things that are
+   genuinely objects (the device, the agent surface, the repo card). Prose,
+   lists and diagrams sit directly on the canvas.
    ========================================================================== */
 
 :root{
-  /* --- deep neutral surfaces; saturation is spent only on state --- */
   --bg:#08080D;
   --bg-2:#0B0B12;
   --surface:#101018;
   --surface-2:#15161F;
-  --line:rgba(255,255,255,.085);
-  --line-strong:rgba(255,255,255,.155);
+  --line:rgba(255,255,255,.08);
+  --line-strong:rgba(255,255,255,.15);
 
   --ink:#FFFFFF;
   --ink-2:rgba(255,255,255,.74);
   --ink-3:rgba(255,255,255,.57);
-  /* .52 clears 4.5:1 on this base with the ancestor chain composited.
-     Anything lower measured under AA on the small mono labels. */
-  --ink-4:rgba(255,255,255,.52);
+  --ink-4:rgba(255,255,255,.52);   /* measured floor for AA at small sizes */
 
   --perceive:#3D6BFF;
   --reason:#7C5CFF;
   --act:#FF7A2F;
   --live:#00E5A0;
-  --block:#FF5A63;
+  --danger:#FF5A63;
 
-  /* Written every frame by the scroll orchestrator. The static values here
-     are what a no-JS / reduced-motion visitor sees. */
-  --flow:#3D6BFF;
-  --flow-2:#7C5CFF;
-  --flow-soft:rgba(61,107,255,.16);
+  --flow:#3D6BFF;                  /* ambient: page position */
+  --st:#8A8FA8;                    /* semantic: agent state  */
   --t:0;
 
-  --r-sm:10px; --r:16px; --r-lg:24px; --r-xl:34px;
-  --maxw:1160px;
+  --r-sm:10px; --r:14px; --r-lg:22px; --r-xl:34px;
+  --maxw:1180px;
   --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
 
   --ease:cubic-bezier(.22,.61,.36,1);
   --ease-out:cubic-bezier(.16,1,.3,1);
-  --spring:cubic-bezier(.34,1.56,.64,1);
+  --spring:cubic-bezier(.34,1.4,.64,1);
 }
 
 *{box-sizing:border-box}
@@ -122,529 +111,410 @@ body{
 }
 img{max-width:100%;display:block}
 a{color:inherit}
-h1,h2,h3{line-height:1.08;margin:0;letter-spacing:-.024em;font-weight:600}
+h1,h2,h3{line-height:1.06;margin:0;letter-spacing:-.028em;font-weight:600}
 p{margin:0}
 button{font-family:inherit}
 
-.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;position:relative}
-section{padding:120px 0;position:relative}
-@media(max-width:720px){section{padding:78px 0}}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 26px;position:relative}
+section{padding:92px 0;position:relative}
+@media(max-width:760px){section{padding:64px 0}}
 
-/* Sections no longer butt against each other with a hard background switch.
-   Each tinted band fades in and out through its own edges, so the surface
-   change reads as a transition rather than a cut. */
+/* A tinted band fades in and out through its own edges, so a surface change
+   reads as a transition rather than a cut. */
 .band::before{
   content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
-  background:linear-gradient(180deg,transparent,var(--surface) 14% 86%,transparent);
+  background:linear-gradient(180deg,transparent,var(--surface) 16% 84%,transparent);
 }
+
+h2{font-size:clamp(30px,4.6vw,52px)}
+.lede{color:var(--ink-2);font-size:clamp(16px,1.65vw,18.5px);max-width:58ch;margin-top:18px}
 
 .eyebrow{
-  font-family:var(--mono);font-size:11px;letter-spacing:.17em;text-transform:uppercase;
-  color:var(--ink-3);display:flex;align-items:center;gap:11px;margin-bottom:22px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-3);display:flex;align-items:center;gap:11px;margin-bottom:18px;
 }
-.eyebrow::before{
-  content:"";width:26px;height:1px;
-  background:linear-gradient(90deg,var(--flow),transparent);
-}
+.eyebrow::before{content:"";width:24px;height:1px;background:linear-gradient(90deg,var(--flow),transparent)}
 .eyebrow.mid{justify-content:center}
+.eyebrow.mid::before{display:none}
 
-h2{font-size:clamp(29px,4.4vw,50px)}
-.lede{color:var(--ink-2);font-size:clamp(16px,1.7vw,19px);max-width:62ch;margin-top:20px}
-
-/* ---------- scroll progress: the spectrum, as a line ---------- */
+/* ---------- scroll progress ---------- */
 .progress{
   position:fixed;top:0;left:0;right:0;height:2px;z-index:90;pointer-events:none;
   background:linear-gradient(90deg,var(--perceive),var(--reason),var(--act));
   transform:scaleX(var(--t));transform-origin:0 50%;
   opacity:0;transition:opacity .4s var(--ease);
 }
-.progress.on{opacity:.9}
+.progress.on{opacity:.85}
 
-/* ---------- masthead: progressive blur, not a hard bar ---------- */
+/* ---------- masthead ---------- */
 .masthead{position:fixed;top:0;left:0;right:0;z-index:80;pointer-events:none}
 .masthead .blur{
-  position:absolute;inset:0;height:104px;
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  mask-image:linear-gradient(180deg,#000 0%,#000 42%,transparent 100%);
-  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 42%,transparent 100%);
+  position:absolute;inset:0;height:96px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  mask-image:linear-gradient(180deg,#000 0%,#000 44%,transparent 100%);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 44%,transparent 100%);
   opacity:0;transition:opacity .45s var(--ease);
 }
 .masthead .blur.on{opacity:1}
 header{pointer-events:auto;position:relative}
-nav{
-  display:flex;align-items:center;gap:26px;height:66px;
-  transition:transform .5s var(--ease-out);
-}
-.brand{
-  display:flex;align-items:center;gap:11px;font-weight:600;letter-spacing:-.02em;
-  text-decoration:none;font-size:15px;flex:none;
-}
-
-/* the nav pill materialises out of nothing as you leave the hero */
+nav{display:flex;align-items:center;gap:24px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.02em;text-decoration:none;font-size:15px;flex:none}
 .nav-links{
-  display:flex;gap:4px;margin-left:auto;margin-right:auto;padding:5px;
+  display:flex;gap:2px;margin-left:auto;margin-right:auto;padding:5px;
   border-radius:999px;position:relative;
   border:1px solid transparent;background:transparent;
-  transition:border-color .5s var(--ease),background .5s var(--ease),
-             backdrop-filter .5s var(--ease);
+  transition:border-color .5s var(--ease),background .5s var(--ease);
 }
 nav.compact .nav-links{
-  border-color:var(--line);background:rgba(16,16,24,.66);
-  backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+  border-color:var(--line);background:rgba(15,15,22,.7);
+  backdrop-filter:blur(14px) saturate(1.25);-webkit-backdrop-filter:blur(14px) saturate(1.25);
 }
 .nav-links a{
   color:var(--ink-3);text-decoration:none;font-size:13.5px;padding:7px 13px;
-  border-radius:999px;position:relative;z-index:1;
-  transition:color .3s var(--ease);white-space:nowrap;
+  border-radius:999px;position:relative;z-index:1;white-space:nowrap;
+  transition:color .3s var(--ease);
 }
-.nav-links a:hover,.nav-links a:focus-visible{color:var(--ink)}
-.nav-links a[aria-current="true"]{color:var(--ink)}
-/* one indicator that slides between items — never a per-item background */
+.nav-links a:hover,.nav-links a:focus-visible,.nav-links a[aria-current="true"]{color:var(--ink)}
 .nav-ind{
   position:absolute;top:5px;left:0;height:calc(100% - 10px);border-radius:999px;
-  background:color-mix(in oklab,var(--flow) 26%,transparent);
-  border:1px solid color-mix(in oklab,var(--flow) 46%,transparent);
+  background:color-mix(in oklab,var(--flow) 24%,transparent);
+  border:1px solid color-mix(in oklab,var(--flow) 44%,transparent);
   opacity:0;pointer-events:none;z-index:0;
   transform:translate3d(var(--x,0),0,0);width:var(--w,0);
-  transition:transform .55s var(--ease-out),width .55s var(--ease-out),opacity .35s;
+  transition:transform .5s var(--ease-out),width .5s var(--ease-out),opacity .3s;
 }
 nav.compact .nav-ind{opacity:1}
-@media(max-width:980px){.nav-links{display:none}}
+@media(max-width:1000px){.nav-links{display:none}}
 
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:9px;
-  padding:11px 20px;border-radius:999px;
+  padding:12px 21px;border-radius:999px;
   font-size:14px;font-weight:550;text-decoration:none;border:1px solid transparent;
-  transition:background .25s var(--ease),border-color .25s var(--ease),
-             color .25s var(--ease),box-shadow .35s var(--ease);
-  white-space:nowrap;position:relative;
-  will-change:transform;
+  white-space:nowrap;position:relative;will-change:transform;
+  transition:background .25s var(--ease),border-color .25s var(--ease),box-shadow .35s var(--ease);
 }
 .btn-primary{background:var(--ink);color:#08080D}
-.btn-primary:hover{box-shadow:0 10px 34px -12px color-mix(in oklab,var(--flow) 80%,transparent)}
+.btn-primary:hover{box-shadow:0 12px 36px -14px color-mix(in oklab,var(--flow) 85%,transparent)}
 .btn-ghost{border-color:var(--line-strong);color:var(--ink)}
-.btn-ghost:hover{background:rgba(255,255,255,.055);border-color:color-mix(in oklab,var(--flow) 55%,transparent)}
+.btn-ghost:hover{background:rgba(255,255,255,.05);border-color:color-mix(in oklab,var(--flow) 52%,transparent)}
 .btn:focus-visible{outline:2px solid var(--flow);outline-offset:3px}
 .btn .ic{transition:transform .35s var(--ease-out)}
 .btn:hover .ic{transform:translateY(2px)}
-.btn-ghost:hover .ic.arr{transform:translateX(3px)}
+.btn:hover .ic.arr{transform:translateX(3px)}
 
 /* ---------- the mark ---------- */
 .ring{flex:none;overflow:visible}
-.ring circle{transform-origin:center}
-@media(prefers-reduced-motion:no-preference){
-  .ring .r-out{animation:breathe 5.5s ease-in-out infinite}
-  .ring .r-mid{animation:breathe 5.5s ease-in-out .6s infinite}
-}
-@keyframes breathe{0%,100%{opacity:.5}50%{opacity:1}}
 
-/* ---------- section indicator: the ring travelling the story ---------- */
-.travel{
-  position:fixed;right:26px;top:50%;z-index:70;pointer-events:none;
-  transform:translateY(-50%);opacity:0;transition:opacity .5s var(--ease);
-}
+/* ---------- section indicator ---------- */
+.travel{position:fixed;right:22px;top:50%;z-index:70;pointer-events:none;transform:translateY(-50%);opacity:0;transition:opacity .5s var(--ease)}
 .travel.on{opacity:1}
-.travel ol{list-style:none;margin:0;padding:0;display:grid;gap:13px}
-.travel li{
-  width:7px;height:7px;border-radius:50%;
-  background:rgba(255,255,255,.16);
-  transition:transform .5s var(--spring),background .5s var(--ease);
-}
-.travel li.at{background:var(--flow);transform:scale(1.75)}
-.travel li.done{background:rgba(255,255,255,.32)}
-@media(max-width:1200px){.travel{display:none}}
+.travel ol{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.travel li{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15);transition:transform .5s var(--spring),background .5s var(--ease)}
+.travel li.at{background:var(--flow);transform:scale(1.8)}
+.travel li.done{background:rgba(255,255,255,.3)}
+@media(max-width:1240px){.travel{display:none}}
 
-/* ---------- hero ---------- */
-.hero{padding:118px 0 104px;overflow:hidden;min-height:min(100svh,940px);display:flex;align-items:center}
-@media(max-width:940px){.hero{padding:104px 0 72px;min-height:0;display:block}}
+/* ======================================================================
+   HERO — one product demonstration, whole thing inside the first screen
+   ====================================================================== */
+.hero{
+  padding:88px 0 52px;overflow:hidden;
+  min-height:100svh;display:flex;align-items:center;
+}
+@media(max-width:960px){.hero{min-height:0;padding:96px 0 64px;display:block}}
 
 .hero-field{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+/* The aura carries all three hues from the very first screen, so the page
+   opens on the whole spectrum rather than on blue alone. */
 .hero-field .aura{
-  position:absolute;left:50%;top:38%;width:min(1180px,140vw);aspect-ratio:1;
+  position:absolute;left:50%;top:44%;width:min(1240px,145vw);aspect-ratio:1;
   transform:translate3d(-50%,-50%,0);
   background:
-    radial-gradient(closest-side,color-mix(in oklab,var(--perceive) 26%,transparent),transparent 72%) -14% 8%/62% 62% no-repeat,
-    radial-gradient(closest-side,color-mix(in oklab,var(--reason) 22%,transparent),transparent 72%) 62% -6%/58% 58% no-repeat,
-    radial-gradient(closest-side,color-mix(in oklab,var(--act) 15%,transparent),transparent 74%) 92% 72%/54% 54% no-repeat;
-  filter:blur(38px);opacity:.85;
+    radial-gradient(closest-side,color-mix(in oklab,var(--perceive) 30%,transparent),transparent 70%) -8% 4%/60% 60% no-repeat,
+    radial-gradient(closest-side,color-mix(in oklab,var(--reason) 26%,transparent),transparent 70%) 54% -8%/56% 56% no-repeat,
+    radial-gradient(closest-side,color-mix(in oklab,var(--act) 22%,transparent),transparent 72%) 96% 60%/54% 54% no-repeat;
+  filter:blur(40px);opacity:.8;
 }
 .hero-field .mandala{
-  position:absolute;left:50%;top:50%;width:min(1000px,124vw);aspect-ratio:1;
-  transform:translate3d(calc(-50% + var(--px,0px)),calc(-50% + var(--py,0px)),0);
-  opacity:.5;
+  position:absolute;left:50%;top:50%;width:min(940px,120vw);aspect-ratio:1;
+  transform:translate3d(-50%,-50%,0) rotate(var(--rot,0deg));
+  opacity:.42;
 }
-.hero-field .mandala .unit{stroke:rgba(255,255,255,.10);stroke-width:1;fill:none}
-.hero-field .mandala .orbit{stroke:rgba(255,255,255,.075);fill:none}
-.hero-field .mandala .spark{fill:var(--flow);opacity:.85}
-.hero-field .veil{
-  position:absolute;inset:0;
-  background:radial-gradient(72% 58% at 50% 34%,transparent,var(--bg) 82%);
-}
+.hero-field .mandala .unit{stroke:rgba(255,255,255,.09);stroke-width:1;fill:none}
+.hero-field .mandala .orbit{stroke:rgba(255,255,255,.07);fill:none}
+.hero-field .veil{position:absolute;inset:0;background:radial-gradient(76% 62% at 50% 40%,transparent,var(--bg) 84%)}
 
-.hero-inner{display:grid;grid-template-columns:1.02fr .98fr;gap:58px;align-items:center;z-index:1}
-@media(max-width:940px){.hero-inner{grid-template-columns:1fr;gap:52px}}
+.hero-inner{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center;z-index:1}
+/* On a phone the device is the argument, so it comes before the small print
+   rather than after it — that alone lifts the screenshot into the first screen.
+   display:contents hoists the copy's children into the flex order so the meta
+   can move past the stage without duplicating any markup. */
+@media(max-width:960px){
+  /* align-items:center is inherited from the desktop rule; without resetting it
+     every hoisted child becomes a shrink-wrapped, centred box and the column
+     loses its left edge. */
+  .hero-inner{display:flex;flex-direction:column;gap:0;align-items:stretch}
+  .hero-copy{display:contents}
+  .hero-copy>*{order:1}
+  .tag{align-self:flex-start}
+  .stage{order:2;margin-top:34px}
+  .hero-meta{order:3;margin-top:30px}
+}
 
 .tag{
   display:inline-flex;align-items:center;gap:9px;padding:6px 14px 6px 10px;border-radius:999px;
-  border:1px solid var(--line-strong);background:rgba(255,255,255,.035);
-  font-size:12.5px;color:var(--ink-2);margin-bottom:28px;
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid var(--line-strong);background:rgba(255,255,255,.03);
+  font-size:12.5px;color:var(--ink-2);margin-bottom:24px;
 }
 .dot{width:6px;height:6px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px rgba(0,229,160,.15)}
 
-h1{font-size:clamp(39px,6.6vw,70px);letter-spacing:-.034em}
-/* The headline gradient is the spectrum itself, and it drifts — the same
-   value that drives every other stateful colour on the page. */
+h1{font-size:clamp(37px,4.7vw,62px);letter-spacing:-.035em}
+/* The full ramp across one word, so orange is present in the first screen. */
 .h1-grad{
-  background:linear-gradient(100deg,var(--perceive) 0%,var(--reason) 48%,var(--act) 100%);
-  background-size:220% 100%;background-position:var(--gp,0%) 0;
+  background:linear-gradient(96deg,var(--perceive) 2%,var(--reason) 46%,var(--act) 96%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-.hero p.lede{margin-top:24px;font-size:clamp(16px,1.8vw,19.5px)}
-.hero-cta{display:flex;gap:12px;margin-top:36px;flex-wrap:wrap}
-.hero-meta{display:flex;gap:24px;margin-top:32px;flex-wrap:wrap;font-size:13px;color:var(--ink-3)}
+.hero p.lede{margin-top:20px;max-width:46ch}
+.hero-cta{display:flex;gap:11px;margin-top:30px;flex-wrap:wrap}
+.hero-meta{display:grid;gap:7px;margin-top:26px;font-size:13px;color:var(--ink-3)}
 .hero-meta b{color:var(--ink-2);font-weight:550}
 
-/* ---------- device ---------- */
-.hero-stage{display:grid;gap:20px;justify-items:center}
+/* ---------- the stage: device + agent read as one object ---------- */
+.stage{display:grid;justify-items:center;gap:0}
 .device{
-  position:relative;width:100%;max-width:290px;
-  border-radius:40px;padding:9px;
+  position:relative;width:232px;
+  border-radius:34px;padding:8px;
   background:linear-gradient(158deg,#31344A,#111219 62%);
-  box-shadow:
-    0 50px 110px -34px rgba(0,0,0,.95),
-    0 0 0 1px var(--line-strong),
-    0 0 90px -30px color-mix(in oklab,var(--flow) 60%,transparent);
-  transition:box-shadow .8s var(--ease);
+  box-shadow:0 44px 96px -34px rgba(0,0,0,.95),0 0 0 1px var(--line-strong),
+             0 0 76px -28px color-mix(in oklab,var(--st) 70%,transparent);
+  transition:box-shadow .9s var(--ease);
   will-change:transform;
 }
-.device-screen{position:relative;border-radius:31px;overflow:hidden;background:#000;aspect-ratio:1080/2392}
+.device-screen{position:relative;border-radius:27px;overflow:hidden;background:#000;aspect-ratio:1080/2392}
 .device-screen img{
   position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  opacity:0;transform:scale(1.012);
-  transition:opacity .75s var(--ease),transform .95s var(--ease-out);
+  opacity:0;transform:scale(1.01);
+  transition:opacity .7s var(--ease),transform .9s var(--ease-out);
 }
 .device-screen img.on{opacity:1;transform:none}
-.device-notch{
-  position:absolute;top:11px;left:50%;transform:translateX(-50%);
-  width:74px;height:5px;border-radius:99px;background:rgba(255,255,255,.15);z-index:4;
-}
-/* the focus overlay: dims the screen and converges a ring onto the control
-   the real product resolved. It dissolves to reveal the actual capture. */
+.device-notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:64px;height:4px;border-radius:99px;background:rgba(255,255,255,.14);z-index:4}
 .focus{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none}
 .focus .dimlayer{opacity:0;transition:opacity .8s var(--ease)}
 .focus .holeG,.focus .ringG{
-  transform-box:fill-box;transform-origin:center;
-  transform:scale(1.34,2.5);
-  transition:transform 1.15s var(--ease-out);
+  transform-box:fill-box;transform-origin:center;transform:scale(1.3,2.4);
+  transition:transform 1.05s var(--ease-out);
 }
-.focus .ringG rect{
-  fill:none;stroke:var(--flow);stroke-width:5;
-  opacity:0;transition:opacity .55s var(--ease);
-}
-.focus.armed .dimlayer{opacity:.6}
+.focus .ringG rect{fill:none;stroke:var(--st);stroke-width:5;opacity:0;transition:opacity .5s var(--ease),stroke .6s var(--ease)}
+.focus.armed .dimlayer{opacity:.58}
 .focus.armed .holeG,.focus.armed .ringG{transform:none}
 .focus.armed .ringG rect{opacity:1}
-.focus.settled .ringG rect{opacity:0}
-.focus.settled .dimlayer{opacity:0}
+.focus.settled .ringG rect,.focus.settled .dimlayer{opacity:0}
 
-/* ---------- agent response surface ---------- */
+/* the connector makes device + agent one continuous instrument */
+.tether{width:1px;height:20px;background:linear-gradient(180deg,var(--st),transparent);opacity:.75;transition:background .7s var(--ease)}
+
 .agent{
-  width:100%;max-width:360px;border-radius:var(--r-lg);
+  width:100%;max-width:322px;border-radius:var(--r-lg);
   border:1px solid var(--line);background:linear-gradient(180deg,var(--surface-2),var(--surface));
-  box-shadow:0 26px 60px -34px rgba(0,0,0,.9);
-  overflow:hidden;
+  box-shadow:0 22px 54px -32px rgba(0,0,0,.9);overflow:hidden;
 }
 .agent-head{
-  display:flex;align-items:center;gap:10px;padding:11px 15px;
-  border-bottom:1px solid var(--line);
-  background:linear-gradient(90deg,color-mix(in oklab,var(--flow) 13%,transparent),transparent 72%);
+  display:flex;align-items:center;gap:9px;padding:10px 14px;border-bottom:1px solid var(--line);
+  background:linear-gradient(90deg,color-mix(in oklab,var(--st) 16%,transparent),transparent 70%);
   transition:background .7s var(--ease);
 }
-.agent-pulse{
-  width:7px;height:7px;border-radius:50%;background:var(--flow);flex:none;
-  box-shadow:0 0 0 0 color-mix(in oklab,var(--flow) 55%,transparent);
-}
-@media(prefers-reduced-motion:no-preference){
-  .agent.live .agent-pulse{animation:pulse 1.7s var(--ease) infinite}
-}
+.agent-pulse{width:7px;height:7px;border-radius:50%;background:var(--st);flex:none;transition:background .5s var(--ease)}
+@media(prefers-reduced-motion:no-preference){.agent.live .agent-pulse{animation:pulse 1.8s var(--ease) infinite}}
 @keyframes pulse{
-  0%{box-shadow:0 0 0 0 color-mix(in oklab,var(--flow) 50%,transparent)}
+  0%{box-shadow:0 0 0 0 color-mix(in oklab,var(--st) 55%,transparent)}
   70%{box-shadow:0 0 0 9px transparent}
   100%{box-shadow:0 0 0 0 transparent}
 }
 .agent-state{font-size:13px;color:var(--ink-2);font-weight:550;letter-spacing:-.01em}
 .agent-stage{
-  margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;
-  text-transform:uppercase;color:var(--flow);transition:color .7s var(--ease);
+  margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:color-mix(in oklab,var(--st) 60%,#fff);transition:color .5s var(--ease);
 }
-.agent-body{padding:15px;display:grid;gap:11px;min-height:112px;align-content:start}
-.agent-line{font-size:14.5px;line-height:1.5;opacity:0;transform:translateY(6px);
-  transition:opacity .5s var(--ease),transform .5s var(--ease-out)}
+.agent-body{padding:13px 14px;display:grid;gap:9px;min-height:92px;align-content:start}
+.agent-line{font-size:14px;line-height:1.5;opacity:0;transform:translateY(5px);transition:opacity .45s var(--ease),transform .45s var(--ease-out)}
 .agent-line.in{opacity:1;transform:none}
-.agent-who{
-  display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--ink-4);margin-bottom:5px;
-}
+.agent-who{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-4);margin-bottom:4px}
 .agent-user{color:var(--ink)}
 .agent-say{color:var(--ink-2)}
-.caret{
-  display:inline-block;width:2px;height:1em;vertical-align:-2px;margin-left:1px;
-  background:var(--flow);opacity:0;
-}
-@media(prefers-reduced-motion:no-preference){
-  .streaming .caret{opacity:1;animation:blink 1s steps(2,start) infinite}
-}
+.caret{display:inline-block;width:2px;height:1em;vertical-align:-2px;margin-left:1px;background:var(--st);opacity:0}
+@media(prefers-reduced-motion:no-preference){.streaming .caret{opacity:1;animation:blink 1s steps(2,start) infinite}}
 @keyframes blink{50%{opacity:0}}
-/* Grounding, not "sources". It appears only when a real element resolved. */
 .agent-src{
-  margin:0 15px 15px;padding:9px 11px;border-radius:11px;
-  border:1px solid color-mix(in oklab,var(--flow) 26%,transparent);
-  background:color-mix(in oklab,var(--flow) 8%,transparent);
-  font-family:var(--mono);font-size:10.5px;color:var(--ink-2);line-height:1.6;
+  margin:0 14px 13px;padding:8px 10px;border-radius:10px;
+  border:1px solid color-mix(in oklab,var(--st) 26%,transparent);
+  background:color-mix(in oklab,var(--st) 8%,transparent);
+  font-family:var(--mono);font-size:10px;color:var(--ink-2);line-height:1.6;
   display:grid;grid-template-rows:0fr;opacity:0;
-  transition:grid-template-rows .5s var(--ease-out),opacity .4s var(--ease),
-             border-color .7s var(--ease),background .7s var(--ease);
+  transition:grid-template-rows .45s var(--ease-out),opacity .35s var(--ease),
+             border-color .6s var(--ease),background .6s var(--ease);
 }
 .agent-src>span{overflow:hidden;min-height:0}
 .agent-src.in{grid-template-rows:1fr;opacity:1}
-.agent-src b{color:var(--flow);font-weight:500}
+.agent-src b{color:color-mix(in oklab,var(--st) 55%,#fff);font-weight:500}
 
-.state-rail{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;max-width:360px}
+.state-rail{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:16px;max-width:340px}
 .state-chip{
-  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
-  padding:7px 12px;border-radius:999px;border:1px solid var(--line);
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  padding:7px 11px;border-radius:999px;border:1px solid var(--line);
   color:var(--ink-3);background:transparent;cursor:pointer;
   transition:color .3s var(--ease),border-color .3s var(--ease),background .3s var(--ease);
 }
-.state-chip[aria-selected="true"]{
-  color:var(--ink);border-color:color-mix(in oklab,var(--chip) 62%,transparent);
-  background:color-mix(in oklab,var(--chip) 17%,transparent);
-}
+.state-chip[aria-selected="true"]{color:var(--ink);border-color:color-mix(in oklab,var(--chip) 60%,transparent);background:color-mix(in oklab,var(--chip) 16%,transparent)}
 .state-chip:focus-visible{outline:2px solid var(--flow);outline-offset:2px}
-.state-caption{
-  text-align:center;font-size:13px;color:var(--ink-3);min-height:38px;
-  max-width:340px;margin-inline:auto;
-  transition:opacity .3s var(--ease);
-}
+/* Reserve the tallest caption's height so the stage never reflows between
+   beats — and so the hero's fit inside the first viewport is computed against
+   the worst case, not the shortest one. */
+.state-caption{text-align:center;font-size:12.5px;color:var(--ink-3);min-height:52px;max-width:330px;margin:11px auto 0}
 
-/* ---------- reveal primitives ---------- */
+/* ---------- reveals ---------- */
 @media(prefers-reduced-motion:no-preference){
-  .rv{opacity:0;transform:translateY(20px);filter:blur(7px)}
-  .rv.in{opacity:1;transform:none;filter:none;
-    transition:opacity .85s var(--ease-out),transform .85s var(--ease-out),filter .85s var(--ease-out)}
-  /* staggered children — one variable, set by the observer */
-  .stagger>*{opacity:0;transform:translateY(22px);filter:blur(5px)}
+  .rv{opacity:0;transform:translateY(18px);filter:blur(6px)}
+  .rv.in{opacity:1;transform:none;filter:none;transition:opacity .8s var(--ease-out),transform .8s var(--ease-out),filter .8s var(--ease-out)}
+  .stagger>*{opacity:0;transform:translateY(20px);filter:blur(4px)}
   .stagger.in>*{opacity:1;transform:none;filter:none;
-    transition:opacity .7s var(--ease-out) var(--d,0ms),transform .7s var(--ease-out) var(--d,0ms),
-               filter .7s var(--ease-out) var(--d,0ms)}
+    transition:opacity .65s var(--ease-out) var(--d,0ms),transform .65s var(--ease-out) var(--d,0ms),filter .65s var(--ease-out) var(--d,0ms)}
 }
 
-/* ---------- generic surfaces ---------- */
-.card{
-  border:1px solid var(--line);border-radius:var(--r-lg);
-  background:linear-gradient(180deg,var(--surface-2),var(--surface));
-  padding:26px;position:relative;overflow:hidden;
-  transition:border-color .45s var(--ease),background .45s var(--ease);
-}
-/* the hover light follows the pointer, tinted by the current spectrum */
-.card::after{
-  content:"";position:absolute;inset:-1px;pointer-events:none;opacity:0;
-  background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%),
-             color-mix(in oklab,var(--flow) 15%,transparent),transparent 62%);
-  transition:opacity .4s var(--ease);
-}
-.card:hover::after{opacity:1}
-.card:hover{border-color:color-mix(in oklab,var(--flow) 34%,transparent)}
-.card h3{font-size:18px;margin-bottom:10px;position:relative}
-.card p{color:var(--ink-3);font-size:14.5px;position:relative}
-.grid{display:grid;gap:18px}
-.g2{grid-template-columns:repeat(2,1fr)}
-.g3{grid-template-columns:repeat(3,1fr)}
-@media(max-width:880px){.g2,.g3{grid-template-columns:1fr}}
-
-.seam{height:1px;background:linear-gradient(90deg,transparent,var(--flow),transparent);opacity:.4;
-  transition:background .8s var(--ease)}
-
-/* ---------- problem ---------- */
-.contrast{display:grid;grid-template-columns:1fr auto 1fr;gap:26px;align-items:center;margin-top:46px}
-@media(max-width:880px){.contrast{grid-template-columns:1fr;gap:16px}}
-.contrast .arrow{color:var(--ink-4);font-size:20px;text-align:center}
-.panel{
-  border:1px solid var(--line);border-radius:var(--r-lg);padding:26px;
-  background:linear-gradient(180deg,var(--surface-2),var(--surface));position:relative;overflow:hidden;
-}
-.panel.bad{border-color:rgba(255,255,255,.1)}
-.panel.good{
-  border-color:color-mix(in oklab,var(--flow) 34%,transparent);
-  background:linear-gradient(180deg,color-mix(in oklab,var(--flow) 9%,var(--surface-2)),var(--surface));
-  transition:border-color .8s var(--ease),background .8s var(--ease);
-}
-.panel h4,.panel .panel-h{
-  margin:0 0 14px;font-size:12px;font-family:var(--mono);letter-spacing:.12em;
-  text-transform:uppercase;color:var(--ink-3);font-weight:500;
-}
-.panel ul{margin:0;padding-left:18px;color:var(--ink-2);font-size:14.5px}
-.panel li{margin:8px 0}
-/* the "asked to do" list degrades as you read down it — the point of the list */
-.panel.bad li{transition:opacity .6s var(--ease),filter .6s var(--ease)}
+/* ======================================================================
+   PROBLEM — a statement, then two columns of plain text on the canvas
+   ====================================================================== */
+.statement{font-size:clamp(31px,5.1vw,60px);letter-spacing:-.032em;line-height:1.04;max-width:15ch}
+.split{display:grid;grid-template-columns:1fr 1px 1fr;gap:40px;margin-top:56px;align-items:stretch}
+@media(max-width:840px){.split{grid-template-columns:1fr;gap:32px}.split .divider{display:none}}
+.divider{background:linear-gradient(180deg,transparent,var(--line-strong) 22% 78%,transparent);min-height:100%}
+.col-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin-bottom:18px}
+.plainlist{list-style:none;margin:0;padding:0;display:grid;gap:13px}
+.plainlist li{font-size:15.5px;color:var(--ink-2)}
+/* The demand list degrades as you read down it — that is the argument, made
+   visually. The floor is .8 of --ink-2, which still measures above 4.5:1;
+   an earlier version bottomed out at .44 and dropped the last two items
+   below AA. Element opacity multiplies the text alpha, so it has to be
+   included in the contrast budget, not just the colour token. */
 @media(prefers-reduced-motion:no-preference){
-  .panel.bad li:nth-child(3){opacity:.82;filter:blur(.25px)}
-  .panel.bad li:nth-child(4){opacity:.66;filter:blur(.55px)}
-  .panel.bad li:nth-child(5){opacity:.5;filter:blur(.9px)}
-  .panel.bad:hover li{opacity:1;filter:none}
+  .plainlist.fading li{transition:opacity .5s var(--ease),filter .5s var(--ease)}
+  .plainlist.fading li:nth-child(3){opacity:.92;filter:blur(.25px)}
+  .plainlist.fading li:nth-child(4){opacity:.86;filter:blur(.45px)}
+  .plainlist.fading li:nth-child(5){opacity:.8;filter:blur(.65px)}
+  .split:hover .plainlist.fading li{opacity:1;filter:none}
 }
+.saidlist li{font-size:19px;color:var(--ink);line-height:1.45}
+.saidlist li+li{margin-top:2px}
 
-/* ---------- the loop: one ring travelling five stations ---------- */
-.loop{margin-top:52px;position:relative}
-.loop-track{
-  position:absolute;left:0;right:0;top:34px;height:1px;
-  background:linear-gradient(90deg,var(--perceive),var(--reason),var(--act));
-  opacity:.32;
-}
-@media(max-width:880px){.loop-track{display:none}}
-.loop-runner{
-  position:absolute;top:34px;left:0;width:9px;height:9px;border-radius:50%;
-  background:var(--flow);margin:-4px 0 0 -4px;
-  box-shadow:0 0 0 5px color-mix(in oklab,var(--flow) 18%,transparent);
+/* ======================================================================
+   LOOP — a horizontal journey, no cards
+   ====================================================================== */
+.journey{margin-top:56px;position:relative}
+.j-line{position:absolute;left:6%;right:6%;top:7px;height:1px;background:linear-gradient(90deg,var(--perceive),var(--reason),var(--act));opacity:.4}
+.j-runner{
+  position:absolute;top:7px;left:6%;width:8px;height:8px;border-radius:50%;background:var(--flow);
+  margin:-4px 0 0 -4px;box-shadow:0 0 0 5px color-mix(in oklab,var(--flow) 16%,transparent);
   transform:translate3d(var(--rx,0),0,0);
-  transition:box-shadow .6s var(--ease);
 }
-@media(max-width:880px){.loop-runner{display:none}}
-.pipe{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;position:relative}
-@media(max-width:880px){.pipe{grid-template-columns:1fr;gap:12px}}
-.step{
-  border:1px solid var(--line);border-radius:var(--r);padding:22px 20px;
-  background:linear-gradient(180deg,var(--surface-2),var(--surface));
-  position:relative;overflow:hidden;padding-top:34px;
-  transition:border-color .5s var(--ease),transform .5s var(--ease-out),background .5s var(--ease);
+.j-track{display:grid;grid-template-columns:repeat(5,1fr);gap:20px}
+.j-step{padding-top:30px;position:relative}
+.j-step::before{
+  content:"";position:absolute;top:3px;left:0;width:9px;height:9px;border-radius:50%;
+  background:var(--bg);border:2px solid var(--c);transform:scale(.6);opacity:.45;
+  transition:transform .5s var(--spring),opacity .4s var(--ease);
 }
-.step .rail{
-  position:absolute;inset:0 0 auto 0;height:2px;background:var(--c);
-  transform:scaleX(0);transform-origin:0 50%;opacity:.75;
-  transition:transform .8s var(--ease-out);
+.j-step.lit::before{transform:none;opacity:1}
+.j-step .n{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:color-mix(in oklab,var(--c) 56%,#fff)}
+.j-step h3{font-size:17px;margin:8px 0 7px}
+.j-step p{font-size:13.5px;color:var(--ink-3)}
+@media(max-width:840px){
+  .j-line,.j-runner{display:none}
+  .j-track{grid-template-columns:1fr;gap:26px}
+  .j-step{padding-top:0;padding-left:26px}
+  .j-step::before{top:6px;left:0}
 }
-.step.lit .rail{transform:none}
-.step.lit{border-color:color-mix(in oklab,var(--c) 42%,transparent)}
-.step:hover{transform:translateY(-3px)}
-/* The saturated stage hue measures 4.3:1 at 11px on this surface — under AA.
-   Mixing toward white lifts luminance without losing which stage it is. */
-.step .n{font-family:var(--mono);font-size:11px;color:color-mix(in oklab,var(--c) 58%,#fff);letter-spacing:.12em}
-.step h3{font-size:15.5px;margin:10px 0 8px}
-.step p{font-size:13.5px;color:var(--ink-3)}
 
-/* ---------- screen understanding ---------- */
-.ground{display:grid;grid-template-columns:.92fr 1.08fr;gap:26px;margin-top:48px;align-items:center}
-@media(max-width:880px){.ground{grid-template-columns:1fr}}
-/* width:100% is load-bearing. As a grid item with auto inline margins the
-   box loses `stretch` and falls back to fit-content — which, before the
-   lazy screenshot has decoded, is zero. */
+/* ======================================================================
+   SCREEN UNDERSTANDING
+   ====================================================================== */
+.ground{display:grid;grid-template-columns:.85fr 1.15fr;gap:44px;margin-top:52px;align-items:center}
+@media(max-width:900px){.ground{grid-template-columns:1fr;gap:34px}}
 .shot{
   position:relative;border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--line);
-  background:#000;width:100%;max-width:290px;margin-inline:auto;
-  aspect-ratio:592/1311;
+  background:#000;width:100%;max-width:272px;margin-inline:auto;aspect-ratio:592/1311;
 }
 .shot img{width:100%;height:auto}
 .shot svg{position:absolute;inset:0;width:100%;height:100%}
-.shot .nodebox{
-  fill:none;stroke:var(--flow);stroke-width:3;opacity:0;
-  stroke-dasharray:var(--len,1200);stroke-dashoffset:var(--len,1200);
-}
-.shot.in .nodebox{
-  opacity:.95;stroke-dashoffset:0;
-  transition:stroke-dashoffset 1.1s var(--ease-out) var(--d,0ms),opacity .4s var(--d,0ms);
-}
-.shot .scan{
-  fill:color-mix(in oklab,var(--flow) 22%,transparent);opacity:0;
-}
-@media(prefers-reduced-motion:no-preference){
-  .shot.in .scan{animation:scan 3.4s var(--ease) 1 forwards}
-}
-@keyframes scan{
-  0%{opacity:0;transform:translateY(0)}
-  12%{opacity:.9}
-  88%{opacity:.9}
-  100%{opacity:0;transform:translateY(1240px)}
-}
+.shot .nodebox{fill:none;stroke:var(--flow);stroke-width:3;opacity:0;stroke-dasharray:var(--len,1200);stroke-dashoffset:var(--len,1200)}
+.shot.in .nodebox{opacity:.9;stroke-dashoffset:0;transition:stroke-dashoffset 1s var(--ease-out) var(--d,0ms),opacity .4s var(--d,0ms)}
 .code{
-  font-family:var(--mono);font-size:12.5px;line-height:1.8;background:#0A0A11;
-  border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;overflow-x:auto;color:var(--ink-2);
-  position:relative;
+  font-family:var(--mono);font-size:12.5px;line-height:1.85;color:var(--ink-2);
+  border-left:1px solid var(--line-strong);padding-left:26px;overflow-x:auto;
 }
-.code .row{opacity:0;transform:translateX(-6px)}
-.code.in .row{opacity:1;transform:none;transition:opacity .45s var(--ease) var(--d,0ms),transform .45s var(--ease-out) var(--d,0ms)}
-/* Saturated brand hues measure under AA at 12.5px on this surface; these are
-   the lightened variants that clear it. */
+@media(max-width:900px){.code{border-left:0;padding-left:0}}
+.code .row{display:block;opacity:0;transform:translateX(-5px)}
+.code.in .row{opacity:1;transform:none;transition:opacity .4s var(--ease) var(--d,0ms),transform .4s var(--ease-out) var(--d,0ms)}
 .code .k{color:#8FA8FF}
 .code .s{color:#FFB183}
 .code .c{color:var(--ink-4)}
 .code .t{color:#4FEEBE}
-.code .hl{
-  background:color-mix(in oklab,var(--flow) 15%,transparent);
-  border-radius:4px;box-shadow:0 0 0 3px color-mix(in oklab,var(--flow) 15%,transparent);
-}
+.code .hl{background:color-mix(in oklab,var(--perceive) 18%,transparent);border-radius:3px;box-shadow:0 0 0 3px color-mix(in oklab,var(--perceive) 18%,transparent)}
 
-/* ---------- circle → agent ---------- */
-.circle-stage{
-  margin-top:48px;display:grid;grid-template-columns:.9fr 1.1fr;gap:34px;align-items:center;
-}
-@media(max-width:880px){.circle-stage{grid-template-columns:1fr;gap:28px}}
-.draw{position:relative;max-width:290px;margin-inline:auto;width:100%}
-.draw .shot{max-width:none}
-.draw svg .lasso{
-  fill:color-mix(in oklab,var(--flow) 12%,transparent);
-  stroke:var(--flow);stroke-width:5;stroke-linecap:round;
-  stroke-dasharray:var(--len,1600);stroke-dashoffset:var(--len,1600);
-}
-.draw.go svg .lasso{transition:stroke-dashoffset 1.5s var(--ease-out)}
-.draw.go svg .lasso{stroke-dashoffset:0}
-.sel-chip{
-  position:absolute;left:50%;bottom:-16px;transform:translate3d(-50%,10px,0) scale(.94);
-  display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
-  background:rgba(12,12,18,.92);border:1px solid color-mix(in oklab,var(--flow) 50%,transparent);
-  font-family:var(--mono);font-size:11px;color:var(--ink);white-space:nowrap;
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  opacity:0;transition:opacity .5s var(--ease) .9s,transform .7s var(--spring) .9s;
-  box-shadow:0 12px 32px -14px #000;
-}
-.draw.go .sel-chip{opacity:1;transform:translate3d(-50%,0,0) scale(1)}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-top:56px}
+@media(max-width:840px){.notes{grid-template-columns:1fr}}
+.note{padding:0 30px;border-left:1px solid var(--line)}
+.note:first-child{padding-left:0;border-left:0}
+@media(max-width:840px){.note{padding:22px 0 0;border-left:0;border-top:1px solid var(--line)}.note:first-child{padding-top:0;border-top:0}}
+.note h3{font-size:16px;margin-bottom:9px}
+.note p{font-size:14px;color:var(--ink-3)}
 
-.vs{display:grid;gap:16px}
-.flowline{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:18px}
-.node{
-  font-family:var(--mono);font-size:11.5px;padding:7px 12px;border-radius:9px;
-  border:1px solid var(--line);color:var(--ink-2);background:rgba(255,255,255,.028);
-  opacity:.45;transform:translateY(4px);
-  transition:opacity .45s var(--ease),transform .45s var(--ease-out),
-             border-color .45s var(--ease),color .45s var(--ease),background .45s var(--ease);
+/* ======================================================================
+   CIRCLE — the differentiator, as a cinematic sequence
+   ====================================================================== */
+.circle-stage{margin-top:52px;display:grid;grid-template-columns:.8fr 1.2fr;gap:48px;align-items:center}
+@media(max-width:900px){.circle-stage{grid-template-columns:1fr;gap:36px}}
+/* the same device frame as the hero: one product, one presentation */
+.draw{position:relative;width:100%;max-width:250px;margin-inline:auto}
+.draw .device{width:100%}
+.draw svg{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none}
+.draw .lasso{
+  fill:color-mix(in oklab,var(--reason) 13%,transparent);
+  stroke:var(--reason);stroke-width:5;stroke-linecap:round;
+  stroke-dasharray:var(--len,1900);stroke-dashoffset:var(--len,1900);
 }
-.node.lit{
-  opacity:1;transform:none;color:var(--ink);
-  border-color:color-mix(in oklab,var(--nc,var(--flow)) 55%,transparent);
-  background:color-mix(in oklab,var(--nc,var(--flow)) 13%,transparent);
-}
-.sep{color:var(--ink-4);font-size:11px;opacity:.55}
-.panel.plain .flowline .node.lit{--nc:#8A8FA8}
+.draw.go .lasso{stroke-dashoffset:0;transition:stroke-dashoffset 1.4s var(--ease-out)}
 
-.tl{margin-top:44px;padding-left:30px;display:grid;gap:26px;position:relative}
-.tl::before{
-  content:"";position:absolute;left:0;top:6px;bottom:6px;width:1px;
-  background:linear-gradient(180deg,var(--perceive),var(--reason),var(--act));
-  transform:scaleY(var(--tp,0));transform-origin:50% 0;
+.beats{display:grid;gap:0;counter-reset:b}
+/* A pending beat is dimmed, not hidden. .68 against --ink-2 keeps the text
+   above 4.5:1 even before it lights — the ring and the weight carry the
+   "not yet" signal instead of illegibility. */
+.beat{
+  display:grid;grid-template-columns:auto 1fr;gap:18px;padding:18px 0;
+  border-top:1px solid var(--line);opacity:.68;
+  transition:opacity .5s var(--ease);
 }
-.tl-item{position:relative}
-.tl-item::before{
-  content:"";position:absolute;left:-35px;top:5px;width:11px;height:11px;border-radius:50%;
-  background:var(--bg);border:2px solid var(--c);
-  transform:scale(.5);opacity:.4;transition:transform .5s var(--spring),opacity .4s var(--ease);
-}
-.tl-item.lit::before{transform:none;opacity:1}
-.tl-who{font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:color-mix(in oklab,var(--c) 58%,#fff)}
-.tl-said{font-size:16.5px;margin-top:6px}
-.tl-note{font-size:13.5px;color:var(--ink-3);margin-top:6px}
+.beat:first-child{border-top:0}
+.beat.lit{opacity:1}
+.beat-ring{width:15px;height:15px;margin-top:5px;flex:none}
+.beat-ring circle{fill:none;stroke:var(--c);stroke-width:2.4;transform-origin:center;transform:scale(.55);opacity:.5;transition:transform .55s var(--spring),opacity .4s}
+.beat.lit .beat-ring circle{transform:none;opacity:1}
+.beat h3{font-size:16.5px;margin-bottom:5px}
+.beat p{font-size:14px;color:var(--ink-2)}
+.beat .said{font-size:16.5px;color:var(--ink);margin-bottom:5px}
 
-/* ---------- languages ---------- */
-.lang-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:34px;position:relative}
+.compare{display:grid;grid-template-columns:auto 1fr;gap:14px 26px;margin-top:52px;align-items:center}
+@media(max-width:840px){.compare{grid-template-columns:1fr;gap:8px}}
+.compare-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-4);white-space:nowrap}
+.chain{display:flex;flex-wrap:wrap;gap:9px;align-items:center;font-family:var(--mono);font-size:12.5px}
+.chain span{color:var(--ink-3)}
+.chain .s{color:var(--ink-4)}
+.chain.rich span{color:color-mix(in oklab,var(--cc,var(--ink)) 60%,#fff)}
+
+/* ======================================================================
+   MULTILINGUAL — centred
+   ====================================================================== */
+.mid-head{text-align:center;max-width:22ch;margin-inline:auto}
+.mid-lede{text-align:center;margin-inline:auto;max-width:56ch}
+.lang-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-top:38px;justify-content:center}
 .lang-tab{
   padding:9px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;
   color:var(--ink-3);cursor:pointer;font-size:14px;
@@ -652,225 +522,162 @@ h1{font-size:clamp(39px,6.6vw,70px);letter-spacing:-.034em}
 }
 .lang-tab[aria-selected="true"]{background:var(--ink);color:#08080D;border-color:var(--ink)}
 .lang-tab:focus-visible{outline:2px solid var(--flow);outline-offset:2px}
-.lang-tab .st{font-size:10px;font-family:var(--mono);opacity:.62;margin-left:6px}
-.lang-stage{
-  margin-top:24px;border:1px solid var(--line);border-radius:var(--r-lg);padding:30px;
-  background:linear-gradient(180deg,var(--surface-2),var(--surface));display:grid;gap:16px;
-}
-.bubble{max-width:min(580px,100%);padding:15px 19px;border-radius:17px;font-size:17px;line-height:1.5}
-.bubble.user{background:rgba(255,255,255,.065);border:1px solid var(--line);border-bottom-right-radius:5px;margin-left:auto;text-align:right}
+.lang-tab .st{font-size:10px;font-family:var(--mono);color:var(--ink-4);margin-left:5px}
+.lang-tab[aria-selected="true"] .st{color:rgba(8,8,13,.66)}
+.lang-stage{margin:26px auto 0;max-width:620px;display:grid;gap:14px}
+.bubble{max-width:88%;padding:14px 18px;border-radius:17px;font-size:17px;line-height:1.5}
+.bubble.user{background:rgba(255,255,255,.06);border:1px solid var(--line);border-bottom-right-radius:5px;margin-left:auto;text-align:right}
 .bubble.saathi{
-  background:linear-gradient(135deg,color-mix(in oklab,var(--flow) 16%,transparent),color-mix(in oklab,var(--reason) 9%,transparent));
-  border:1px solid color-mix(in oklab,var(--flow) 30%,transparent);border-bottom-left-radius:5px;
-  transition:background .8s var(--ease),border-color .8s var(--ease);
+  background:linear-gradient(135deg,color-mix(in oklab,var(--act) 15%,transparent),color-mix(in oklab,var(--reason) 9%,transparent));
+  border:1px solid color-mix(in oklab,var(--act) 28%,transparent);border-bottom-left-radius:5px;
 }
-.bubble .who{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-4);margin-bottom:8px}
-/* swapping language re-enters the text rather than hard-cutting it */
-.swap{display:inline-block;transition:opacity .28s var(--ease),transform .38s var(--ease-out),filter .28s var(--ease)}
-.swap.out{opacity:0;transform:translateY(-5px);filter:blur(5px)}
-.pill-state{
-  display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px;
-  border-radius:999px;background:rgba(255,255,255,.055);border:1px solid var(--line);
-  font-size:12.5px;color:var(--ink-2);
-}
+.bubble .who{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin-bottom:7px}
+.swap{display:inline-block;transition:opacity .25s var(--ease),transform .35s var(--ease-out),filter .25s var(--ease)}
+.swap.out{opacity:0;transform:translateY(-4px);filter:blur(4px)}
+.pill-state{display:inline-flex;align-items:center;gap:8px;margin-top:13px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12.5px;color:var(--ink-2)}
 .pill-state .dot{width:5px;height:5px;background:var(--act);box-shadow:0 0 0 3px rgba(255,122,47,.15)}
-.lang-note{font-size:13px;color:var(--ink-3);display:flex;gap:9px;align-items:flex-start}
+.lang-note{font-size:13px;color:var(--ink-3);display:flex;gap:9px;align-items:flex-start;justify-content:center;text-align:left;max-width:620px;margin:0 auto}
 
-/* ---------- safety gate ---------- */
-.gate{margin-top:48px;display:grid;grid-template-columns:1fr 1.15fr;gap:30px;align-items:center}
-@media(max-width:880px){.gate{grid-template-columns:1fr}}
-.gate-viz{
-  border:1px solid var(--line);border-radius:var(--r-lg);padding:26px;
-  background:linear-gradient(180deg,var(--surface-2),var(--surface));
+/* ======================================================================
+   SAFETY — the pipeline, and where orange peaks
+   ====================================================================== */
+.pipeline{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:16px;align-items:center;margin-top:52px}
+@media(max-width:900px){.pipeline{grid-template-columns:1fr;gap:10px}.pipeline .arrow{transform:rotate(90deg)}}
+.pstage{
+  border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.05em;color:var(--ink-3);text-align:center;
+  transition:border-color .45s var(--ease),background .45s var(--ease),color .45s var(--ease);
 }
-.gate-row{display:grid;gap:12px}
-.gate-box{
-  border:1px solid var(--line);border-radius:12px;padding:12px 14px;
-  font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--ink-2);
-  display:flex;align-items:center;gap:10px;
-  transition:border-color .4s var(--ease),background .4s var(--ease),color .4s var(--ease);
-}
-.gate-box.on{border-color:color-mix(in oklab,var(--gc,var(--flow)) 58%,transparent);
-  background:color-mix(in oklab,var(--gc,var(--flow)) 13%,transparent);color:var(--ink)}
-.gate-arrow{height:22px;display:grid;place-items:center;color:var(--ink-4);font-size:13px}
-.gate-outs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.gate-out{
-  border:1px solid var(--line);border-radius:11px;padding:11px 8px;text-align:center;
-  font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-4);
-  transform:scale(.97);
+.pstage.on{color:var(--ink);border-color:color-mix(in oklab,var(--pc) 58%,transparent);background:color-mix(in oklab,var(--pc) 12%,transparent)}
+.pipeline .arrow{color:var(--ink-4);font-size:14px;text-align:center}
+.verdicts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.verdict{
+  border:1px solid var(--line);border-radius:11px;padding:11px 6px;text-align:center;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;color:var(--ink-4);
   transition:all .4s var(--ease);
 }
-.gate-out.on{transform:none;color:var(--ink)}
-.gate-out.on.ok{border-color:rgba(0,229,160,.55);background:rgba(0,229,160,.12)}
-.gate-out.on.warn{border-color:rgba(255,122,47,.55);background:rgba(255,122,47,.13)}
-.gate-out.on.block{border-color:rgba(255,90,99,.55);background:rgba(255,90,99,.13)}
-.gate-verdict{margin-top:16px;font-size:13px;color:var(--ink-3);min-height:38px}
-.gate-verdict code{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
+.verdict.on.ok{color:var(--ink);border-color:rgba(0,229,160,.5);background:rgba(0,229,160,.11)}
+.verdict.on.warn{color:var(--ink);border-color:rgba(255,122,47,.6);background:rgba(255,122,47,.15)}
+.verdict.on.block{color:var(--ink);border-color:rgba(255,90,99,.55);background:rgba(255,90,99,.13)}
+.gate-verdict{margin-top:20px;font-size:13.5px;color:var(--ink-3);min-height:40px;text-align:center}
+.gate-verdict code{font-family:var(--mono);font-size:12px;color:color-mix(in oklab,var(--act) 55%,#fff)}
 
-table{width:100%;border-collapse:collapse;font-size:14.5px}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin-top:44px}
 th,td{text-align:left;padding:13px 14px;border-bottom:1px solid var(--line)}
-th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-4);font-weight:500}
 td:first-child{color:var(--ink)}
 tbody tr{cursor:pointer;transition:background .3s var(--ease)}
 tbody tr:hover,tbody tr.sel{background:rgba(255,255,255,.035)}
 tbody tr:focus-visible{outline:2px solid var(--flow);outline-offset:-2px}
-.pill{font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:999px;white-space:nowrap}
-.pill.ok{background:rgba(0,229,160,.13);color:#6FF0C6}
-.pill.warn{background:rgba(255,122,47,.14);color:#FFBE93}
+.pill{font-family:var(--mono);font-size:10.5px;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:rgba(0,229,160,.12);color:#6FF0C6}
+.pill.warn{background:rgba(255,122,47,.15);color:#FFBE93}
 .pill.block{background:rgba(255,90,99,.14);color:#FF9AA1}
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 
-/* ---------- architecture ---------- */
-.arch{margin-top:50px;position:relative;display:grid;gap:12px}
-.arch-stage{
-  display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:stretch;
+/* ======================================================================
+   ARCHITECTURE — a compact map, everything readable without hover
+   ====================================================================== */
+.map{margin-top:52px;display:grid;grid-template-columns:1fr 1fr;gap:0 46px}
+@media(max-width:880px){.map{grid-template-columns:1fr;gap:0}}
+.tier{padding:22px 0;border-top:1px solid var(--line);display:grid;grid-template-columns:96px 1fr;gap:20px;align-items:start}
+.tier:first-child,.tier:nth-child(2){border-top:0}
+@media(max-width:880px){.tier:nth-child(2){border-top:1px solid var(--line)}}
+@media(max-width:520px){.tier{grid-template-columns:1fr;gap:10px}}
+.tier-label{
+  font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+  color:color-mix(in oklab,var(--c) 55%,#fff);display:flex;align-items:center;gap:8px;padding-top:2px;
 }
-.arch-spine{position:relative;width:2px;background:var(--line);border-radius:2px}
-.arch-spine .fill{
-  position:absolute;inset:0 0 auto 0;border-radius:2px;
-  background:linear-gradient(180deg,var(--perceive),var(--reason),var(--act));
-  height:calc(var(--ap,0) * 100%);
-}
-.arch-list{display:grid;gap:10px}
-.arch-node{
-  border:1px solid var(--line);border-radius:14px;padding:15px 18px;
-  background:linear-gradient(180deg,var(--surface-2),var(--surface));
-  display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
-  cursor:default;position:relative;
-  transition:border-color .45s var(--ease),transform .45s var(--ease-out),background .45s var(--ease);
-}
-.arch-node:hover,.arch-node:focus-within{
-  border-color:color-mix(in oklab,var(--c) 52%,transparent);transform:translateX(4px);
-}
-.arch-node .bead{
-  width:10px;height:10px;border-radius:50%;border:2px solid var(--c);background:var(--bg);
-  transform:scale(.7);opacity:.5;transition:transform .5s var(--spring),opacity .4s var(--ease);
-}
-.arch-node.lit .bead{transform:none;opacity:1;box-shadow:0 0 0 5px color-mix(in oklab,var(--c) 16%,transparent)}
-.arch-node .cls{font-family:var(--mono);font-size:13px;color:var(--ink)}
-/* Same correction as .step .n — 9.5px needs more luminance than the raw hue. */
-.arch-node .role{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:color-mix(in oklab,var(--c) 55%,#fff)}
-.arch-why{
-  grid-column:1/-1;font-size:13.5px;color:var(--ink-3);
-  display:grid;grid-template-rows:0fr;opacity:0;
-  transition:grid-template-rows .45s var(--ease-out),opacity .35s var(--ease);
-}
-.arch-why>span{overflow:hidden;min-height:0}
-.arch-node:hover .arch-why,.arch-node:focus-within .arch-why{grid-template-rows:1fr;opacity:1;padding-top:4px}
-@media(max-width:640px){
-  .arch-node{grid-template-columns:auto 1fr;gap:12px}
-  .arch-node .role{grid-column:2}
-}
+.tier-label .bead{width:9px;height:9px;border-radius:50%;border:2px solid var(--c);background:var(--bg);flex:none;transform:scale(.6);opacity:.5;transition:transform .5s var(--spring),opacity .4s}
+.tier.lit .tier-label .bead{transform:none;opacity:1;box-shadow:0 0 0 4px color-mix(in oklab,var(--c) 15%,transparent)}
+.unitrow+.unitrow{margin-top:14px}
+.unitrow .cls{font-family:var(--mono);font-size:13px;color:var(--ink);display:block}
+.unitrow .why{font-size:13.5px;color:var(--ink-3);margin-top:3px}
 
-/* ---------- open source: contribution travelling into the product ---------- */
-.oss{display:grid;grid-template-columns:1.1fr .9fr;gap:38px;align-items:center}
-@media(max-width:880px){.oss{grid-template-columns:1fr}}
+/* ======================================================================
+   OPEN SOURCE
+   ====================================================================== */
+.oss{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center}
+@media(max-width:900px){.oss{grid-template-columns:1fr;gap:32px}}
 .repo{border:1px solid var(--line);border-radius:var(--r-lg);background:linear-gradient(180deg,var(--surface-2),var(--surface));overflow:hidden}
-.repo-top{display:flex;align-items:center;gap:10px;padding:15px 19px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
-.repo-body{padding:19px}
-.repo-row{display:flex;justify-content:space-between;gap:16px;padding:9px 0;font-size:13.5px;color:var(--ink-3);border-bottom:1px solid rgba(255,255,255,.05)}
+.repo-top{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.repo-body{padding:6px 18px 14px}
+.repo-row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;font-size:13.5px;color:var(--ink-3);border-bottom:1px solid rgba(255,255,255,.05)}
 .repo-row:last-child{border-bottom:0}
 .repo-row b{color:var(--ink-2);font-weight:500;text-align:right}
-.ship{margin-top:44px;position:relative}
-.ship-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-@media(max-width:720px){.ship-track{grid-template-columns:repeat(5,1fr);gap:5px}}
-.ship-node{
-  border:1px solid var(--line);border-radius:12px;padding:14px 8px;text-align:center;
-  font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink-4);background:var(--surface);
-  transition:color .4s var(--ease),border-color .4s var(--ease),background .4s var(--ease),transform .5s var(--spring);
-}
-@media(max-width:720px){.ship-node{font-size:8.5px;padding:12px 3px;letter-spacing:.04em}}
-.ship-node.on{
-  color:var(--ink);border-color:color-mix(in oklab,var(--flow) 52%,transparent);
-  background:color-mix(in oklab,var(--flow) 12%,transparent);transform:translateY(-3px);
-}
+.ship{margin-top:52px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-family:var(--mono);font-size:12px}
+.ship-node{padding:9px 14px;border-radius:999px;border:1px solid var(--line);color:var(--ink-4);transition:color .4s var(--ease),border-color .4s var(--ease),background .4s var(--ease)}
+.ship-node.on{color:var(--ink);border-color:color-mix(in oklab,var(--flow) 50%,transparent);background:color-mix(in oklab,var(--flow) 11%,transparent)}
+.ship .s{color:var(--ink-4)}
 
-/* ---------- closing ---------- */
-.cta{
-  border:1px solid var(--line-strong);border-radius:var(--r-xl);padding:78px 36px 60px;text-align:center;
-  position:relative;overflow:hidden;
-  background:linear-gradient(180deg,var(--surface),var(--bg));
-}
-.cta-rings{position:absolute;left:50%;top:44%;width:min(900px,150%);aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none;opacity:.6}
-.cta-rings circle{fill:none;stroke:var(--flow);opacity:.16;transform-origin:center;
-  transition:stroke 1s var(--ease)}
-@media(prefers-reduced-motion:no-preference){
-  .cta.in .cta-rings circle{animation:expand 4.6s var(--ease-out) infinite}
-}
-@keyframes expand{
-  0%{transform:scale(.24);opacity:0}
-  22%{opacity:.3}
-  100%{transform:scale(1);opacity:0}
-}
-.cta h2{font-size:clamp(30px,4.6vw,52px);position:relative}
-.cta .lede{margin-inline:auto;position:relative}
-.cta .hero-cta{justify-content:center;position:relative}
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:46px;text-align:left;position:relative}
-@media(max-width:880px){.steps{grid-template-columns:1fr}}
-.stepnum{
-  width:27px;height:27px;border-radius:50%;border:1px solid var(--line-strong);
-  display:grid;place-items:center;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);margin-bottom:12px;
-}
+/* ======================================================================
+   CLOSING
+   ====================================================================== */
+.close{text-align:center;position:relative;padding:34px 0 8px}
+.cta-rings{position:absolute;left:50%;top:46%;width:min(1000px,150%);aspect-ratio:1;transform:translate(-50%,-50%);pointer-events:none}
+.cta-rings circle{fill:none;stroke:var(--act);opacity:.3;stroke-width:1;transform-origin:center}
+@media(prefers-reduced-motion:no-preference){.close.in .cta-rings circle{animation:expand 5s var(--ease-out) infinite}}
+@keyframes expand{0%{transform:scale(.22);opacity:0}18%{opacity:.42}100%{transform:scale(1);opacity:0}}
+.close h2{font-size:clamp(32px,5.2vw,60px);position:relative;max-width:14ch;margin-inline:auto}
+.close .lede{margin-inline:auto;position:relative;text-align:center}
+.close .hero-cta{justify-content:center;position:relative}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:64px;text-align:left;position:relative}
+@media(max-width:840px){.steps{grid-template-columns:1fr}}
+.stepitem{padding:0 24px;border-left:1px solid var(--line)}
+.stepitem:first-child{padding-left:0;border-left:0}
+@media(max-width:840px){.stepitem{padding:20px 0 0;border-left:0;border-top:1px solid var(--line)}.stepitem:first-child{padding-top:0;border-top:0}}
+.stepnum{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);letter-spacing:.14em;margin-bottom:9px}
+.stepitem b{font-size:15px}
+.stepitem p{color:var(--ink-3);font-size:13.5px;margin-top:5px}
 
 /* ---------- footer ---------- */
-footer{border-top:1px solid var(--line);padding:56px 0 44px;color:var(--ink-3);font-size:13.5px}
+footer{border-top:1px solid var(--line);padding:52px 0 42px;color:var(--ink-3);font-size:13.5px;margin-top:24px}
 .foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:34px}
-@media(max-width:880px){.foot-grid{grid-template-columns:1fr;gap:28px}}
-footer h5,footer .foot-h{margin:0 0 12px;font-size:11px;font-family:var(--mono);letter-spacing:.13em;text-transform:uppercase;color:var(--ink-4);font-weight:500}
+@media(max-width:840px){.foot-grid{grid-template-columns:1fr;gap:26px}}
+footer .foot-h{margin:0 0 12px;font-size:10.5px;font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);font-weight:500}
 footer a{color:var(--ink-3);text-decoration:none;display:block;padding:4px 0;transition:color .25s var(--ease)}
 footer a:hover{color:var(--ink)}
 .disclaimer{margin-top:38px;padding-top:26px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-4);line-height:1.65}
 
-/* ---------- accessibility floor ---------- */
 :focus-visible{outline:2px solid var(--flow);outline-offset:2px;border-radius:4px}
 .skip{position:absolute;left:-9999px}
-.skip:focus{left:24px;top:12px;z-index:100;background:var(--ink);color:#08080D;padding:10px 16px;border-radius:8px}
+.skip:focus{left:26px;top:12px;z-index:100;background:var(--ink);color:#08080D;padding:10px 16px;border-radius:8px}
 
-/* Touch targets: chips and footer links measured ~28px on coarse pointers. */
 @media(pointer:coarse){
-  .state-chip{padding:12px 15px}
+  .state-chip{padding:12px 14px}
   .lang-tab{padding:12px 17px}
   footer a{padding:11px 0}
 }
 
-/* Reduced motion: content and hierarchy are identical, choreography is not.
-   Every timed loop is also disabled in JS — this is the CSS half only. */
+/* Reduced motion: same content, same hierarchy, no choreography. */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{
     animation-duration:.001ms!important;animation-iteration-count:1!important;
     transition-duration:.001ms!important;scroll-behavior:auto!important;
   }
   .rv,.stagger>*{opacity:1!important;transform:none!important;filter:none!important}
-  .node,.step .rail,.arch-node .bead,.tl-item::before,.gate-out{opacity:1!important;transform:none!important}
-  .step .rail{transform:scaleX(1)!important}
-  .shot .nodebox{opacity:.95!important;stroke-dashoffset:0!important}
-  .draw svg .lasso{stroke-dashoffset:0!important}
-  .sel-chip{opacity:1!important;transform:translate3d(-50%,0,0)!important}
+  .beat,.tier,.j-step{opacity:1!important}
+  .j-step::before,.beat-ring circle,.tier-label .bead{transform:none!important;opacity:1!important}
+  .shot .nodebox,.draw .lasso{stroke-dashoffset:0!important;opacity:.9!important}
+  .plainlist.fading li{opacity:1!important;filter:none!important}
   .progress{display:none}
-  .hero-field .aura{opacity:.5}
 }
 </style>
 
 <noscript><style>
-/* Reveals start hidden and are shown by an IntersectionObserver. With JS off
-   that observer never runs, so the entire page below the hero would be blank.
-   Show everything, and hide the controls that would otherwise be dead. */
+/* Reveals start hidden and are shown by an IntersectionObserver; with JS off
+   that observer never runs. Show everything, hide controls that would be dead. */
 .rv,.stagger>*{opacity:1!important;transform:none!important;filter:none!important}
-.node,.tl-item::before,.arch-node .bead{opacity:1!important;transform:none!important}
-.step .rail{transform:scaleX(1)!important}
-.shot .nodebox{opacity:.95!important;stroke-dashoffset:0!important}
-.draw svg .lasso{stroke-dashoffset:0!important}
-.sel-chip{opacity:1!important;transform:translate3d(-50%,0,0)!important}
+.beat,.tier,.j-step{opacity:1!important}
+.j-step::before,.beat-ring circle,.tier-label .bead{transform:none!important;opacity:1!important}
+.shot .nodebox,.draw .lasso{stroke-dashoffset:0!important;opacity:.9!important}
 .code .row{opacity:1!important;transform:none!important}
-.state-rail,.gate-verdict,.agent{display:none}
-.progress,.travel{display:none}
 .ship-node{color:var(--ink-2)}
+.state-rail,.agent,.gate-verdict,.progress,.travel{display:none}
 </style></noscript>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-
 <div class="progress" id="prog" aria-hidden="true"></div>
 
 <div class="masthead">
@@ -880,8 +687,8 @@ footer a:hover{color:var(--ink)}
       <nav id="nav">
         <a class="brand" href="#top">
           <svg class="ring" width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-            <circle class="r-out" cx="16" cy="16" r="13" fill="none" stroke="#3D6BFF" stroke-width="2.2"/>
-            <circle class="r-mid" cx="16" cy="16" r="7.5" fill="none" stroke="#7C5CFF" stroke-width="2.2"/>
+            <circle cx="16" cy="16" r="13" fill="none" stroke="#3D6BFF" stroke-width="2.2"/>
+            <circle cx="16" cy="16" r="7.5" fill="none" stroke="#7C5CFF" stroke-width="2.2"/>
             <circle cx="16" cy="16" r="2.6" fill="#FF7A2F"/>
           </svg>
           ScreenSaathi
@@ -902,9 +709,7 @@ footer a:hover{color:var(--ink)}
   </header>
 </div>
 
-<div class="travel" id="travel" aria-hidden="true">
-  <ol id="travellist"></ol>
-</div>
+<div class="travel" id="travel" aria-hidden="true"><ol id="travellist"></ol></div>
 
 <main id="main">
 
@@ -919,9 +724,8 @@ footer a:hover{color:var(--ink)}
   <div class="wrap hero-inner">
     <div class="hero-copy">
       <span class="tag"><span class="dot"></span> Open source · MIT · Android 8.0+</span>
-      <h1>An agentic AI layer<br>for <span class="h1-grad" id="h1g">Android</span></h1>
+      <h1>An agentic AI<br>layer for <span class="h1-grad">Android</span></h1>
       <p class="lede">
-        Understand your screen. Ask naturally. Let ScreenSaathi help.
         It reads the live interface through Android's accessibility tree, works out
         which control you actually mean, and rings it — then waits for you to tap.
       </p>
@@ -940,7 +744,7 @@ footer a:hover{color:var(--ink)}
       </div>
     </div>
 
-    <div class="hero-stage">
+    <div class="stage">
       <div class="device" id="device">
         <div class="device-notch" aria-hidden="true"></div>
         <div class="device-screen" id="screen">
@@ -948,21 +752,21 @@ footer a:hover{color:var(--ink)}
           <img src="assets/voice-interaction.png" alt="ScreenSaathi listening, with a live microphone waveform" data-i="1" width="592" height="1311" loading="lazy">
           <img src="assets/target-highlighting.png" alt="A ring drawn around Uber's real Where to field" data-i="2" width="592" height="1311" loading="lazy">
           <img src="assets/keyboard-aware.png" alt="The assistant repositioned above an open keyboard" data-i="3" width="592" height="1311" loading="lazy">
-          <!-- Focus overlay. Bounds match the control the app actually
-               resolved in the capture underneath; it dissolves to reveal the
-               real highlight rather than standing in for it. -->
+          <!-- Bounds match the control the app actually resolved in the capture
+               underneath. The overlay dissolves to reveal the real highlight
+               rather than standing in for it. -->
           <svg class="focus" id="focus" viewBox="0 0 592 1311" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <mask id="fmask">
-                <rect width="592" height="1311" fill="#fff"/>
-                <g class="holeG"><rect x="8" y="172" width="576" height="124" rx="30" fill="#000"/></g>
-              </mask>
-            </defs>
+            <defs><mask id="fmask">
+              <rect width="592" height="1311" fill="#fff"/>
+              <g class="holeG"><rect x="8" y="172" width="576" height="124" rx="30" fill="#000"/></g>
+            </mask></defs>
             <rect class="dimlayer" width="592" height="1311" fill="#04040A" mask="url(#fmask)"/>
             <g class="ringG"><rect x="8" y="172" width="576" height="124" rx="30"/></g>
           </svg>
         </div>
       </div>
+
+      <div class="tether" aria-hidden="true"></div>
 
       <div class="agent" id="agent">
         <div class="agent-head">
@@ -976,7 +780,7 @@ footer a:hover{color:var(--ink)}
         </div>
         <div class="agent-src" id="agSrc"><span>
           grounded in <b>ScreenSnapshot</b> → node<br>
-          <code>Button · "Where to?" · clickable · confidence 100</code>
+          Button · "Where to?" · clickable · confidence 100
         </span></div>
       </div>
 
@@ -984,33 +788,25 @@ footer a:hover{color:var(--ink)}
         <button class="state-chip" role="tab" aria-selected="true" data-i="0" style="--chip:#8A8FA8">Idle</button>
         <button class="state-chip" role="tab" aria-selected="false" data-i="1" style="--chip:#3D6BFF">Listening</button>
         <button class="state-chip" role="tab" aria-selected="false" data-i="2" style="--chip:#FF7A2F">Guiding</button>
-        <button class="state-chip" role="tab" aria-selected="false" data-i="3" style="--chip:#7C5CFF">Keyboard-aware</button>
+        <button class="state-chip" role="tab" aria-selected="false" data-i="3" style="--chip:#7C5CFF">Keyboard</button>
       </div>
       <p class="state-caption" id="cap">Waiting quietly. Tap it, or circle anything on screen.</p>
     </div>
   </div>
 </section>
 
-<div class="wrap"><div class="seam"></div></div>
-
 <!-- ============================ PROBLEM ============================ -->
 <section id="problem">
   <div class="wrap">
     <div class="rv">
       <p class="eyebrow">The problem</p>
-      <h2>Technology got easier.<br>Interfaces got harder.</h2>
-      <p class="lede">
-        A person can know exactly what they want to do and still be stuck, because
-        today's interface expects them to already know where it hid the button.
-        That gap isn't a knowledge problem. It's a design problem — and it lands
-        hardest on the people with the least room to absorb it.
-      </p>
+      <h2 class="statement">Technology got easier. Interfaces got harder.</h2>
     </div>
 
-    <div class="contrast stagger">
-      <div class="panel bad">
-        <h3 class="panel-h">What people are asked to do</h3>
-        <ul>
+    <div class="split rv">
+      <div>
+        <p class="col-h">What people are asked to do</p>
+        <ul class="plainlist fading">
           <li>Recognise an unlabelled icon</li>
           <li>Know that "⋮" hides the thing they need</li>
           <li>Read 11px grey text on white</li>
@@ -1018,47 +814,46 @@ footer a:hover{color:var(--ink)}
           <li>Do it again after the next app update</li>
         </ul>
       </div>
-      <div class="arrow" aria-hidden="true">→</div>
-      <div class="panel good">
-        <h3 class="panel-h">What they actually want to say</h3>
-        <ul>
-          <li>"Help me book a taxi."</li>
-          <li>"Where do I find my ticket?"</li>
-          <li>"Help me pay this bill."</li>
-          <li>"How do I share this photo?"</li>
-          <li lang="hi-IN">"टैक्सी बुक करने में मेरी मदद करो"</li>
+      <div class="divider" aria-hidden="true"></div>
+      <div>
+        <p class="col-h">What they actually want to say</p>
+        <ul class="plainlist saidlist">
+          <li>“Help me book a taxi.”</li>
+          <li>“Where do I find my ticket?”</li>
+          <li>“Help me pay this bill.”</li>
+          <li lang="hi-IN">“टैक्सी बुक करने में मेरी मदद करो”</li>
         </ul>
       </div>
     </div>
 
-    <p class="lede rv" style="margin-top:36px">
+    <p class="lede rv" style="margin-top:52px;max-width:52ch">
       People shouldn't have to learn the interface before they can use it.
       The software should learn how to help them.
     </p>
   </div>
 </section>
 
-<!-- ============================ THE LOOP ============================ -->
+<!-- ============================ LOOP ============================ -->
 <section id="how" class="band">
   <div class="wrap">
     <div class="rv">
       <p class="eyebrow">The loop</p>
-      <h2>Speak. Perceive. Decide. Guide. Continue.</h2>
+      <h2>Speak. Perceive. Decide.<br>Guide. Continue.</h2>
       <p class="lede">
         Not a chatbot with a screenshot. A loop that re-reads the screen after every
         step, so guidance survives the interface changing underneath it.
       </p>
     </div>
 
-    <div class="loop" id="loop">
-      <div class="loop-track" aria-hidden="true"></div>
-      <div class="loop-runner" id="runner" aria-hidden="true"></div>
-      <div class="pipe">
-        <div class="step" style="--c:#3D6BFF"><i class="rail"></i><div class="n">01</div><h3>Speak</h3><p>Say it in Hindi, Tamil or English — or circle something instead.</p></div>
-        <div class="step" style="--c:#4E63FF"><i class="rail"></i><div class="n">02</div><h3>Perceive</h3><p>Read the live accessibility tree: labels, roles, bounds, state.</p></div>
-        <div class="step" style="--c:#7C5CFF"><i class="rail"></i><div class="n">03</div><h3>Decide</h3><p>Resolve which element is meant. Refuse if it's genuinely ambiguous.</p></div>
-        <div class="step" style="--c:#C86BB0"><i class="rail"></i><div class="n">04</div><h3>Guide</h3><p>Ring the real control and say what it is. The person taps it.</p></div>
-        <div class="step" style="--c:#FF7A2F"><i class="rail"></i><div class="n">05</div><h3>Continue</h3><p>Screen changed → clear the ring, re-read, find the next step.</p></div>
+    <div class="journey rv" id="journey">
+      <div class="j-line" aria-hidden="true"></div>
+      <div class="j-runner" id="runner" aria-hidden="true"></div>
+      <div class="j-track">
+        <div class="j-step" style="--c:#3D6BFF"><div class="n">01</div><h3>Speak</h3><p>Say it in Hindi, Tamil or English — or circle something instead.</p></div>
+        <div class="j-step" style="--c:#4E63FF"><div class="n">02</div><h3>Perceive</h3><p>Read the live accessibility tree: labels, roles, bounds, state.</p></div>
+        <div class="j-step" style="--c:#7C5CFF"><div class="n">03</div><h3>Decide</h3><p>Resolve which element is meant. Refuse if it's genuinely ambiguous.</p></div>
+        <div class="j-step" style="--c:#C86BB0"><div class="n">04</div><h3>Guide</h3><p>Ring the real control and say what it is. The person taps it.</p></div>
+        <div class="j-step" style="--c:#FF7A2F"><div class="n">05</div><h3>Continue</h3><p>Screen changed → clear the ring, re-read, find the next step.</p></div>
       </div>
     </div>
   </div>
@@ -1081,58 +876,44 @@ footer a:hover{color:var(--ink)}
       <div class="shot rv" id="nodeshot">
         <img src="assets/target-highlighting.png" alt="The Uber home screen with ScreenSaathi's highlight around the Where to? field" width="592" height="1311" loading="lazy">
         <svg viewBox="0 0 592 1311" preserveAspectRatio="none" aria-hidden="true">
-          <rect class="scan" x="0" y="-6" width="592" height="6"/>
-          <rect class="nodebox" x="8"   y="172"  width="576" height="124" rx="30" style="--len:1420;--d:120ms"/>
-          <rect class="nodebox" x="22"  y="308"  width="548" height="78"  rx="18" style="--len:1270;--d:340ms;opacity:.5"/>
-          <rect class="nodebox" x="22"  y="404"  width="530" height="236" rx="16" style="--len:1560;--d:520ms;opacity:.5"/>
-          <rect class="nodebox" x="40"  y="748"  width="96"  height="96"  rx="48" style="--len:400;--d:700ms;opacity:.5"/>
+          <rect class="nodebox" x="8"  y="172" width="576" height="124" rx="30" style="--len:1420;--d:100ms"/>
+          <rect class="nodebox" x="22" y="308" width="548" height="78"  rx="18" style="--len:1270;--d:300ms;opacity:.45"/>
+          <rect class="nodebox" x="22" y="404" width="530" height="236" rx="16" style="--len:1560;--d:460ms;opacity:.45"/>
+          <rect class="nodebox" x="40" y="748" width="96"  height="96"  rx="48" style="--len:400;--d:620ms;opacity:.45"/>
         </svg>
       </div>
 
       <div class="code rv" id="nodecode" aria-label="Example accessibility node">
 <span class="row" style="--d:60ms"><span class="c">// what the accessibility tree actually exposes</span></span>
-<span class="row" style="--d:120ms"><span class="k">node</span> {</span>
-<span class="row" style="--d:180ms">  <span class="k">class</span>       <span class="s">"android.widget.Button"</span></span>
-<span class="row" style="--d:240ms">  <span class="k">text</span>        <span class="s hl">"Where to?"</span></span>
-<span class="row" style="--d:300ms">  <span class="k">bounds</span>      [42,347][1038,505]</span>
-<span class="row" style="--d:360ms">  <span class="k">clickable</span>   <span class="t">true</span></span>
-<span class="row" style="--d:420ms">  <span class="k">enabled</span>     <span class="t">true</span></span>
-<span class="row" style="--d:480ms">  <span class="k">editable</span>    <span class="t">false</span></span>
-<span class="row" style="--d:540ms">}</span>
-<span class="row" style="--d:640ms"> </span>
-<span class="row" style="--d:700ms"><span class="c">// ranked match, not a substring guess</span></span>
-<span class="row" style="--d:760ms"><span class="k">resolved</span>    → <span class="s">"Where to?"</span></span>
-<span class="row" style="--d:820ms"><span class="k">confidence</span>  100</span>
-<span class="row" style="--d:880ms"><span class="k">strategy</span>    <span class="t">ACCESSIBILITY_ONLY</span></span>
-<span class="row" style="--d:940ms"><span class="c">// nothing left the device</span></span>
+<span class="row" style="--d:110ms"><span class="k">node</span> {</span>
+<span class="row" style="--d:160ms">  <span class="k">class</span>       <span class="s">"android.widget.Button"</span></span>
+<span class="row" style="--d:210ms">  <span class="k">text</span>        <span class="s hl">"Where to?"</span></span>
+<span class="row" style="--d:260ms">  <span class="k">bounds</span>      [42,347][1038,505]</span>
+<span class="row" style="--d:310ms">  <span class="k">clickable</span>   <span class="t">true</span></span>
+<span class="row" style="--d:360ms">  <span class="k">enabled</span>     <span class="t">true</span></span>
+<span class="row" style="--d:410ms">  <span class="k">editable</span>    <span class="t">false</span></span>
+<span class="row" style="--d:460ms">}</span>
+<span class="row" style="--d:540ms"> </span>
+<span class="row" style="--d:590ms"><span class="c">// ranked match, not a substring guess</span></span>
+<span class="row" style="--d:640ms"><span class="k">resolved</span>    → <span class="s">"Where to?"</span></span>
+<span class="row" style="--d:690ms"><span class="k">confidence</span>  100</span>
+<span class="row" style="--d:740ms"><span class="k">strategy</span>    <span class="t">ACCESSIBILITY_ONLY</span></span>
+<span class="row" style="--d:790ms"><span class="c">// nothing left the device</span></span>
       </div>
     </div>
 
-    <div class="grid g3 stagger" style="margin-top:26px">
-      <div class="card">
+    <div class="notes stagger">
+      <div class="note">
         <h3>Told, not inferred</h3>
-        <p>
-          A pixels-only assistant has to infer that a rounded rectangle is a button.
-          ScreenSaathi is <em>told</em> it is one — along with whether it's enabled,
-          whether it takes text, and exactly where it sits.
-        </p>
+        <p>A pixels-only assistant has to infer that a rounded rectangle is a button. ScreenSaathi is <em>told</em> it is one — along with whether it's enabled, whether it takes text, and exactly where it sits.</p>
       </div>
-      <div class="card">
+      <div class="note">
         <h3>Four wins, one decision</h3>
-        <p>
-          So the common case needs no model at all: <b style="color:var(--ink-2)">private</b>
-          (the screen stays on the phone), <b style="color:var(--ink-2)">free</b>,
-          <b style="color:var(--ink-2)">instant</b>, and <b style="color:var(--ink-2)">checkable</b>
-          — you can see why it matched.
-        </p>
+        <p>So the common case needs no model at all: private — the screen stays on the phone — free, instant, and checkable. You can see why it matched.</p>
       </div>
-      <div class="card">
+      <div class="note">
         <h3>Pixels are an escalation</h3>
-        <p>
-          When the tree is weak or the region is genuinely just an image,
-          <code style="font-family:var(--mono);font-size:12.5px;color:var(--ink-2)">PerceptionStrategy</code>
-          says so rather than inventing an answer.
-        </p>
+        <p>When the tree is weak or the region is genuinely just an image, <span style="font-family:var(--mono);font-size:13px;color:var(--ink-2)">PerceptionStrategy</span> says so rather than inventing an answer.</p>
       </div>
     </div>
   </div>
@@ -1143,72 +924,61 @@ footer a:hover{color:var(--ink)}
   <div class="wrap">
     <div class="rv">
       <p class="eyebrow">Circle to understand</p>
-      <h2>Most tools answer.<br>This one can help.</h2>
+      <h2>Circle anything.<br>Ask anything.<br>Get help doing it.</h2>
       <p class="lede">
-        Circle anything on screen and ask about it. The difference isn't the circle —
-        it's what happens after. ScreenSaathi remembers what you selected, so
-        "okay, help me use it" still knows what <em>it</em> is.
+        The difference isn't the circle — it's what happens after. ScreenSaathi keeps
+        what you selected, so "okay, help me use it" still knows what <em>it</em> is.
       </p>
     </div>
 
     <div class="circle-stage">
-      <div class="draw" id="draw">
-        <div class="shot">
-          <img src="assets/target-highlighting.png" alt="A freehand circle being drawn around the Where to? field" width="592" height="1311" loading="lazy">
-          <svg viewBox="0 0 592 1311" preserveAspectRatio="none" aria-hidden="true">
-            <!-- freehand, because a person's circle is never a perfect ellipse -->
-            <path class="lasso" style="--len:1900"
-              d="M300 148 C 452 143, 576 168, 580 232 C 585 296, 470 322, 300 320
-                 C 132 318, 14 300, 12 234 C 10 170, 140 150, 300 148 Z"/>
-          </svg>
+      <div class="draw rv" id="draw">
+        <div class="device">
+          <div class="device-notch" aria-hidden="true"></div>
+          <div class="device-screen">
+            <img class="on" src="assets/target-highlighting.png" alt="A freehand circle being drawn around the Where to? field" width="592" height="1311" loading="lazy">
+          </div>
         </div>
-        <span class="sel-chip">selection · "Where to?" · Button</span>
+        <svg viewBox="0 0 592 1311" preserveAspectRatio="none" aria-hidden="true">
+          <!-- freehand, because a person's circle is never a perfect ellipse -->
+          <path class="lasso" style="--len:1900"
+            d="M300 148 C 452 143, 576 168, 580 232 C 585 296, 470 322, 300 320
+               C 132 318, 14 300, 12 234 C 10 170, 140 150, 300 148 Z"/>
+        </svg>
       </div>
 
-      <div class="vs">
-        <div class="panel plain rv">
-          <h3 class="panel-h">Traditional visual search</h3>
-          <div class="flowline" data-flow="a">
-            <span class="node">Circle</span><span class="sep">→</span>
-            <span class="node">Answer</span>
-          </div>
-          <p style="color:var(--ink-3);font-size:14.5px;margin-top:18px">
-            The conversation ends at the answer. Acting on it is still your problem.
-          </p>
+      <div class="beats" id="beats">
+        <div class="beat" style="--c:#3D6BFF">
+          <svg class="beat-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>
+          <div><h3>You circle it</h3><p>A freehand region, not a tap target. Nothing has been sent anywhere yet.</p></div>
         </div>
-        <div class="panel good rv">
-          <h3 class="panel-h">ScreenSaathi</h3>
-          <div class="flowline" data-flow="b">
-            <span class="node" style="--nc:#3D6BFF">Circle</span><span class="sep">→</span>
-            <span class="node" style="--nc:#4E63FF">Understand</span><span class="sep">→</span>
-            <span class="node" style="--nc:#6560FF">Converse</span><span class="sep">→</span>
-            <span class="node" style="--nc:#7C5CFF">Decide</span><span class="sep">→</span>
-            <span class="node" style="--nc:#C86BB0">Guide</span><span class="sep">→</span>
-            <span class="node" style="--nc:#FF7A2F">Observe</span><span class="sep">→</span>
-            <span class="node" style="--nc:#FF7A2F">Continue</span>
-          </div>
-          <p style="color:var(--ink-3);font-size:14.5px;margin-top:18px">
-            The selection becomes context for a task. Follow-ups keep it.
-          </p>
+        <div class="beat" style="--c:#5C60FF">
+          <svg class="beat-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>
+          <div><h3>It resolves what that is</h3><p><span style="font-family:var(--mono);font-size:13px;color:var(--ink-2)">SelectionResolver</span> ranks the region against the live tree — a clickable button labelled “Book now”, with a confidence score.</p></div>
+        </div>
+        <div class="beat" style="--c:#7C5CFF">
+          <svg class="beat-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>
+          <div><div class="said">“Okay, help me use it.”</div><p>No re-selecting. “It” still refers to the circled button — the selection survives the turn.</p></div>
+        </div>
+        <div class="beat" style="--c:#FF7A2F">
+          <svg class="beat-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>
+          <div><h3>It rings the real control</h3><p>You tap. The screen changes. The old ring clears, the new screen is read, and it continues from there.</p></div>
         </div>
       </div>
     </div>
 
-    <div class="tl" id="tl">
-      <div class="tl-item" style="--c:#3D6BFF">
-        <div class="tl-who">You — circles the “Book now” button</div>
-        <div class="tl-said">“What is this?”</div>
-        <div class="tl-note">Resolved against the live tree by <code style="font-family:var(--mono);font-size:12.5px">SelectionResolver</code>: a clickable button labelled “Book now”.</div>
-      </div>
-      <div class="tl-item" style="--c:#7C5CFF">
-        <div class="tl-who">You — no re-selecting</div>
-        <div class="tl-said">“Okay, help me use it.”</div>
-        <div class="tl-note">“It” still refers to the circled button. The selection persists across turns.</div>
-      </div>
-      <div class="tl-item" style="--c:#FF7A2F">
-        <div class="tl-who">ScreenSaathi</div>
-        <div class="tl-said">Rings the real button and explains the step.</div>
-        <div class="tl-note">You tap. The screen changes. The old ring clears, the new screen is read, and it continues.</div>
+    <div class="compare rv">
+      <p class="compare-h">Traditional visual search</p>
+      <div class="chain"><span>Circle</span><span class="s">→</span><span>Answer</span></div>
+      <p class="compare-h">ScreenSaathi</p>
+      <div class="chain rich">
+        <span style="--cc:#3D6BFF">Circle</span><span class="s">→</span>
+        <span style="--cc:#4E63FF">Understand</span><span class="s">→</span>
+        <span style="--cc:#6560FF">Converse</span><span class="s">→</span>
+        <span style="--cc:#7C5CFF">Decide</span><span class="s">→</span>
+        <span style="--cc:#C86BB0">Guide</span><span class="s">→</span>
+        <span style="--cc:#FF7A2F">Observe</span><span class="s">→</span>
+        <span style="--cc:#FF7A2F">Continue</span>
       </div>
     </div>
   </div>
@@ -1218,9 +988,9 @@ footer a:hover{color:var(--ink)}
 <section id="languages">
   <div class="wrap">
     <div class="rv">
-      <p class="eyebrow">Multilingual</p>
-      <h2>Ask in your language.<br>Get answered in it.</h2>
-      <p class="lede">
+      <p class="eyebrow mid">Multilingual</p>
+      <h2 class="mid-head">Ask in your language. Get answered in it.</h2>
+      <p class="lede mid-lede">
         The spoken language is detected, and the reply comes back in the same one —
         including the assistant's own wording, not just a translated sentence.
       </p>
@@ -1243,20 +1013,20 @@ footer a:hover{color:var(--ink)}
           <span class="swap" id="ls">Which app would you like to use?</span>
           <span class="pill-state"><span class="dot" aria-hidden="true"></span><span class="swap" id="lst">Guiding you</span></span>
         </div>
-        <div class="lang-note" id="ln">
-          <span aria-hidden="true">●</span>
-          <span>Verbatim from the app: these are the strings in Phrases.kt and PillLabels.kt.</span>
-        </div>
       </div>
+      <p class="lang-note" id="ln" style="margin-top:16px">
+        <span aria-hidden="true">●</span>
+        <span>Verbatim from the app: these are the strings in Phrases.kt and PillLabels.kt.</span>
+      </p>
     </div>
 
-    <p class="lede rv" style="margin-top:28px;font-size:15px">
-      <b style="color:var(--ink-2)">Being precise about this:</b> Hindi, Tamil and English are
+    <p class="lede rv mid-lede" style="margin-top:34px;font-size:14.5px">
+      <b style="color:var(--ink-2)">Being precise:</b> Hindi, Tamil and English are
       fully authored — the assistant's own words exist in each. The speech models
-      recognise and speak more Indian languages than that, but their interface
-      wording still falls back to English, so those are marked
-      <span style="font-family:var(--mono);font-size:12px">planned</span> rather
-      than claimed. <a href="https://github.com/NITISH-R-G/ScreenSaathi/issues/13" style="color:var(--ink-2)">Adding one is a good first contribution →</a>
+      recognise more Indian languages than that, but their interface wording still
+      falls back to English, so those are marked
+      <span style="font-family:var(--mono);font-size:12px">planned</span> rather than claimed.
+      <a href="https://github.com/NITISH-R-G/ScreenSaathi/issues/13" style="color:var(--ink-2)">Adding one is a good first contribution →</a>
     </p>
   </div>
 </section>
@@ -1268,61 +1038,53 @@ footer a:hover{color:var(--ink)}
       <p class="eyebrow">Safety</p>
       <h2>The model proposes.<br>Policy decides.</h2>
       <p class="lede">
-        An assistant that can read your screen needs limits that a model cannot argue
-        its way past. Actions are classified before anything is drawn, by
-        deterministic code — not by asking the model whether it thinks it should proceed.
+        An assistant that can read your screen needs limits a model cannot argue its
+        way past. Actions are classified before anything is drawn, by deterministic
+        code — not by asking the model whether it thinks it should proceed.
       </p>
     </div>
 
-    <div class="gate">
-      <div class="gate-viz rv" id="gateviz">
-        <div class="gate-row">
-          <div class="gate-box" id="gb1" style="--gc:#7C5CFF"><span>MODEL PROPOSES</span></div>
-          <div class="gate-arrow" aria-hidden="true">↓</div>
-          <div class="gate-box" id="gb2" style="--gc:#FF7A2F"><span>ActionPolicy.classify()</span></div>
-          <div class="gate-arrow" aria-hidden="true">↓</div>
-          <div class="gate-outs">
-            <div class="gate-out ok"    id="go1">SAFE</div>
-            <div class="gate-out warn"  id="go2">CONFIRM</div>
-            <div class="gate-out block" id="go3">BLOCKED</div>
-          </div>
-        </div>
-        <p class="gate-verdict" id="verdict">Pick a row — the policy runs on the element's own label, not on what you asked for.</p>
-      </div>
-
-      <div class="table-scroll rv">
-        <table>
-          <caption class="sr-only" style="position:absolute;left:-9999px">Action policy outcomes. Selecting a row shows which policy level it maps to.</caption>
-          <thead><tr><th>Action</th><th>Policy</th><th>What happens</th></tr></thead>
-          <tbody id="policy">
-            <tr tabindex="0" data-o="1" data-lv="SAFE_READ"                 data-r="Read aloud. No state changes anywhere."><td>Reading something aloud</td><td><span class="pill ok">Safe</span></td><td>Proceeds</td></tr>
-            <tr tabindex="0" data-o="1" data-lv="SAFE_GUIDE"                data-r="Points at a control. You do the tapping — today's normal case."><td>Ringing a control</td><td><span class="pill ok">Safe</span></td><td>Proceeds — you do the tapping</td></tr>
-            <tr tabindex="0" data-o="2" data-lv="USER_CONFIRMATION_REQUIRED" data-r="Matched on the element label: “send”, “submit”, “book now”, “भेजें”, “அனுப்பு”."><td>Submitting or sending</td><td><span class="pill warn">Confirm</span></td><td>States what it is before you commit</td></tr>
-            <tr tabindex="0" data-o="2" data-lv="HIGH_RISK_ACTION"          data-r="Matched on “pay now”, “pay ₹”, “transfer”, “भुगतान करें”, “பணம் செலுத்து”. Named explicitly, never a generic “continue?”."><td>Payments and transfers</td><td><span class="pill warn">Confirm</span></td><td>Named explicitly, never a generic “continue?”</td></tr>
-            <tr tabindex="0" data-o="3" data-lv="BLOCKED_ACTION"            data-r="Matched on “grant permission”, “accessibility service”, “अनुमति दें”. Never confirmable at any confidence."><td>Granting app permissions</td><td><span class="pill block">Blocked</span></td><td>Refused outright</td></tr>
-            <tr tabindex="0" data-o="3" data-lv="BLOCKED_ACTION"            data-r="Matched on “factory reset”, “erase all data”, “device admin”, “developer options”."><td>Factory reset, device admin</td><td><span class="pill block">Blocked</span></td><td>Refused outright</td></tr>
-            <tr tabindex="0" data-o="3" data-lv="BLOCKED_ACTION"            data-r="Matched on “seed phrase”, “recovery phrase”, “private key”. There is no legitimate assisted path here."><td>Recovery phrases, private keys</td><td><span class="pill block">Blocked</span></td><td>Refused outright</td></tr>
-          </tbody>
-        </table>
+    <div class="pipeline rv" id="pipeline">
+      <div class="pstage" id="ps1" style="--pc:#7C5CFF">MODEL PROPOSES</div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="pstage" id="ps2" style="--pc:#FF7A2F">ActionPolicy.classify()</div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="verdicts">
+        <div class="verdict ok"    id="v1">SAFE</div>
+        <div class="verdict warn"  id="v2">CONFIRM</div>
+        <div class="verdict block" id="v3">BLOCKED</div>
       </div>
     </div>
+    <p class="gate-verdict" id="verdict">Pick a row — the policy runs on the element's own label, not on what you asked for.</p>
 
-    <div class="grid g2 stagger" style="margin-top:34px">
-      <div class="card">
+    <div class="table-scroll rv">
+      <table>
+        <caption style="position:absolute;left:-9999px">Action policy outcomes. Selecting a row shows which policy level it maps to.</caption>
+        <thead><tr><th>Action</th><th>Policy</th><th>What happens</th></tr></thead>
+        <tbody id="policy">
+          <tr tabindex="0" data-o="1" data-lv="SAFE_READ"                  data-r="Read aloud. No state changes anywhere."><td>Reading something aloud</td><td><span class="pill ok">Safe</span></td><td>Proceeds</td></tr>
+          <tr tabindex="0" data-o="1" data-lv="SAFE_GUIDE"                 data-r="Points at a control. You do the tapping — today's normal case."><td>Ringing a control</td><td><span class="pill ok">Safe</span></td><td>Proceeds — you do the tapping</td></tr>
+          <tr tabindex="0" data-o="2" data-lv="USER_CONFIRMATION_REQUIRED" data-r="Matched on the element label: “send”, “submit”, “book now”, “भेजें”, “அனுப்பு”."><td>Submitting or sending</td><td><span class="pill warn">Confirm</span></td><td>States what it is before you commit</td></tr>
+          <tr tabindex="0" data-o="2" data-lv="HIGH_RISK_ACTION"           data-r="Matched on “pay now”, “pay ₹”, “transfer”, “भुगतान करें”, “பணம் செலுத்து”. Named explicitly, never a generic “continue?”."><td>Payments and transfers</td><td><span class="pill warn">Confirm</span></td><td>Named explicitly, never a generic “continue?”</td></tr>
+          <tr tabindex="0" data-o="3" data-lv="BLOCKED_ACTION"             data-r="Matched on “grant permission”, “accessibility service”, “अनुमति दें”. Never confirmable at any confidence."><td>Granting app permissions</td><td><span class="pill block">Blocked</span></td><td>Refused outright</td></tr>
+          <tr tabindex="0" data-o="3" data-lv="BLOCKED_ACTION"             data-r="Matched on “factory reset”, “erase all data”, “device admin”, “developer options”."><td>Factory reset, device admin</td><td><span class="pill block">Blocked</span></td><td>Refused outright</td></tr>
+          <tr tabindex="0" data-o="3" data-lv="BLOCKED_ACTION"             data-r="Matched on “seed phrase”, “recovery phrase”, “private key”. There is no legitimate assisted path here."><td>Recovery phrases, private keys</td><td><span class="pill block">Blocked</span></td><td>Refused outright</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="notes stagger" style="margin-top:52px">
+      <div class="note">
         <h3>Blocked, not merely confirmed</h3>
-        <p>
-          A confirmation prompt for something that should never happen just trains
-          people to approve prompts. Talking someone through granting permissions is
-          a social-engineering pattern, so it isn't a dialog — it's a refusal.
-        </p>
+        <p>A confirmation prompt for something that should never happen just trains people to approve prompts. Talking someone through granting permissions is a social-engineering pattern, so it isn't a dialog — it's a refusal.</p>
       </div>
-      <div class="card">
+      <div class="note">
         <h3>You are the irreversible step</h3>
-        <p>
-          ScreenSaathi does not tap, type or swipe. The accessibility service
-          deliberately omits gesture permissions. It points; a human decides. That's
-          the strongest safety property in the design, and it's structural.
-        </p>
+        <p>ScreenSaathi does not tap, type or swipe. The accessibility service deliberately omits gesture permissions. It points; a human decides.</p>
+      </div>
+      <div class="note">
+        <h3>Structural, not advisory</h3>
+        <p>The ruling is enforced again at execution by <span style="font-family:var(--mono);font-size:13px;color:var(--ink-2)">SafetyGuard</span>, so a later code path cannot route around the decision.</p>
       </div>
     </div>
   </div>
@@ -1336,100 +1098,54 @@ footer a:hover{color:var(--ink)}
       <h2>Provider-agnostic<br>by construction.</h2>
       <p class="lede">
         No vendor name appears in any AI interface in the codebase. Swapping or adding
-        a model provider is one class — not a rewrite — and the app is fully functional
+        a model provider is one class, not a rewrite, and the app is fully functional
         with none configured. Every name below is a real file in
-        <code style="font-family:var(--mono);font-size:13px;color:var(--ink-2)">src/ScreenSaathi</code>.
+        <span style="font-family:var(--mono);font-size:14px;color:var(--ink-2)">src/ScreenSaathi</span>.
       </p>
     </div>
 
-    <div class="arch rv" id="arch">
-      <div class="arch-stage">
-        <div class="arch-spine" aria-hidden="true"><span class="fill" id="archfill"></span></div>
-        <div class="arch-list">
-          <div class="arch-node" tabindex="0" style="--c:#3D6BFF">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">ScreenReaderService</span>
-            <span class="role">perceive</span>
-            <span class="arch-why"><span>The AccessibilityService itself. Receives window-change events and holds the live node tree — deliberately without gesture-dispatch permission.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#4A66FF">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">ScreenSnapshot</span>
-            <span class="role">perceive</span>
-            <span class="arch-why"><span>One flattened, immutable read of the screen: every label, role, bound and state at a single instant. Everything downstream reasons about this, never the live tree.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#5C60FF">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">SelectionResolver</span>
-            <span class="role">resolve</span>
-            <span class="arch-why"><span>Turns a circled region into a ranked element match with a confidence score — not a substring guess, and it declines when nothing clears the bar.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#7C5CFF">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">PerceptionStrategy</span>
-            <span class="role">decide</span>
-            <span class="arch-why"><span>Chooses ACCESSIBILITY_ONLY, HYBRID or VISION_ONLY. Pixels are an escalation with a stated reason, never the default.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#9A63E0">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">ModelRouter</span>
-            <span class="role">decide</span>
-            <span class="arch-why"><span>Picks a provider for the chosen strategy behind a vendor-neutral interface. With none configured the app still works — it falls back to the deterministic StepEngine.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#C86BB0">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">ActionPolicy</span>
-            <span class="role">guard</span>
-            <span class="arch-why"><span>Classifies the proposed action into SAFE_READ, SAFE_GUIDE, USER_CONFIRMATION_REQUIRED, HIGH_RISK_ACTION or BLOCKED_ACTION — deterministic code, before anything is drawn.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#E56E7E">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">SafetyGuard</span>
-            <span class="role">guard</span>
-            <span class="arch-why"><span>The second gate: enforces the ruling at the point of execution, so a policy decision cannot be bypassed by a later code path.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#FF7A2F">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">SessionController</span>
-            <span class="role">act</span>
-            <span class="arch-why"><span>Owns the conversation: language, task state, the circled selection across turns, and the decision to re-read the screen after every step.</span></span>
-          </div>
-          <div class="arch-node" tabindex="0" style="--c:#FF7A2F">
-            <span class="bead" aria-hidden="true"></span>
-            <span class="cls">OverlayService · HighlightView</span>
-            <span class="role">act</span>
-            <span class="arch-why"><span>Draws the pill and the highlight over other apps, lifts clear of the keyboard, and clears the ring the moment the screen changes underneath it.</span></span>
-          </div>
+    <div class="map rv" id="map">
+      <div class="tier" style="--c:#3D6BFF">
+        <p class="tier-label"><span class="bead" aria-hidden="true"></span>Perceive</p>
+        <div>
+          <div class="unitrow"><span class="cls">ScreenReaderService</span><p class="why">The AccessibilityService itself — window-change events and the live node tree, deliberately without gesture-dispatch permission.</p></div>
+          <div class="unitrow"><span class="cls">ScreenSnapshot</span><p class="why">One flattened, immutable read of the screen. Everything downstream reasons about this, never the live tree.</p></div>
         </div>
       </div>
-    </div>
-
-    <div class="grid g3 stagger" style="margin-top:22px">
-      <div class="card">
-        <h3>Three levels of understanding</h3>
-        <p>
-          <b style="color:var(--ink-2)">ACCESSIBILITY_ONLY</b> when the tree can answer —
-          the common case, nothing leaves the phone.
-          <b style="color:var(--ink-2)">HYBRID</b> when the match is weak.
-          <b style="color:var(--ink-2)">VISION_ONLY</b> when the region is genuinely just pixels.
-        </p>
+      <div class="tier" style="--c:#5C60FF">
+        <p class="tier-label"><span class="bead" aria-hidden="true"></span>Resolve</p>
+        <div>
+          <div class="unitrow"><span class="cls">ScreenSelection</span><p class="why">The circled region, normalised into screen coordinates the rest of the system can reason about.</p></div>
+          <div class="unitrow"><span class="cls">SelectionResolver</span><p class="why">Ranked element match with a confidence score — not a substring guess, and it declines when nothing clears the bar.</p></div>
+        </div>
       </div>
-      <div class="card">
-        <h3>Vision is designed, not shipped</h3>
-        <p>
-          The multimodal path is built and tested end-to-end — but
-          <b style="color:var(--ink-2)">no vision provider is currently integrated</b>.
-          Circle a photograph today and ScreenSaathi tells you it would need visual
-          understanding, rather than guessing.
-        </p>
+      <div class="tier" style="--c:#7C5CFF">
+        <p class="tier-label"><span class="bead" aria-hidden="true"></span>Decide</p>
+        <div>
+          <div class="unitrow"><span class="cls">PerceptionStrategy</span><p class="why">Chooses ACCESSIBILITY_ONLY, HYBRID or VISION_ONLY. Pixels are an escalation with a stated reason, never the default.</p></div>
+          <div class="unitrow"><span class="cls">ModelRouter</span><p class="why">Picks a provider behind a vendor-neutral interface. With none configured it falls back to the deterministic StepEngine.</p></div>
+        </div>
       </div>
-      <div class="card">
-        <h3>More than a crop</h3>
-        <p>
-          When a provider is added, it receives the pixels <em>plus</em> the resolved
-          element, its confidence, nearby text, the screen, the conversation and the
-          active task. A bare crop throws away everything that makes grounding possible.
-        </p>
+      <div class="tier" style="--c:#C86BB0">
+        <p class="tier-label"><span class="bead" aria-hidden="true"></span>Guard</p>
+        <div>
+          <div class="unitrow"><span class="cls">ActionPolicy</span><p class="why">Classifies into SAFE_READ, SAFE_GUIDE, USER_CONFIRMATION_REQUIRED, HIGH_RISK_ACTION or BLOCKED_ACTION — before anything is drawn.</p></div>
+          <div class="unitrow"><span class="cls">SafetyGuard</span><p class="why">Enforces the ruling at the point of execution, so a policy decision cannot be bypassed by a later code path.</p></div>
+        </div>
+      </div>
+      <div class="tier" style="--c:#FF7A2F">
+        <p class="tier-label"><span class="bead" aria-hidden="true"></span>Act</p>
+        <div>
+          <div class="unitrow"><span class="cls">SessionController</span><p class="why">Owns the conversation: language, task state, the circled selection across turns, and the decision to re-read after every step.</p></div>
+          <div class="unitrow"><span class="cls">OverlayService · HighlightView</span><p class="why">Draws the pill and the highlight over other apps, lifts clear of the keyboard, and clears the ring when the screen changes.</p></div>
+        </div>
+      </div>
+      <div class="tier" style="--c:#8A8FA8">
+        <p class="tier-label"><span class="bead" aria-hidden="true"></span>Vision</p>
+        <div>
+          <div class="unitrow"><span class="cls">VisionProvider</span><p class="why">Built and tested end-to-end, but <b style="color:var(--ink-2);font-weight:500">no vision provider is currently integrated</b>. Circle a photograph today and ScreenSaathi says it would need visual understanding rather than guessing.</p></div>
+          <div class="unitrow"><span class="cls">CircleContext</span><p class="why">What a provider would receive: the pixels plus the resolved element, its confidence, nearby text, the screen, the conversation and the active task.</p></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1470,16 +1186,12 @@ footer a:hover{color:var(--ink)}
     </div>
 
     <div class="ship rv" id="ship">
-      <div class="ship-track">
-        <div class="ship-node">Issue</div>
-        <div class="ship-node">Pull request</div>
-        <div class="ship-node">Review</div>
-        <div class="ship-node">Merge</div>
-        <div class="ship-node">Release</div>
-      </div>
-      <p style="margin-top:16px;font-size:13.5px;color:var(--ink-3)">
-        Every change reaches the APK the same way — through a public pull request, CI, and a tagged release with a published SHA256.
-      </p>
+      <span class="ship-node">Issue</span><span class="s">→</span>
+      <span class="ship-node">Pull request</span><span class="s">→</span>
+      <span class="ship-node">Review</span><span class="s">→</span>
+      <span class="ship-node">Merge</span><span class="s">→</span>
+      <span class="ship-node">Release</span>
+      <span style="color:var(--ink-3);font-family:var(--sans);font-size:13.5px;margin-left:8px">every change reaches the APK this way</span>
     </div>
   </div>
 </section>
@@ -1487,21 +1199,21 @@ footer a:hover{color:var(--ink)}
 <!-- ============================ CLOSING ============================ -->
 <section id="try">
   <div class="wrap">
-    <div class="cta rv" id="cta">
+    <div class="close rv" id="close">
       <svg class="cta-rings" viewBox="0 0 400 400" aria-hidden="true">
-        <circle cx="200" cy="200" r="196" stroke-width="1"   style="animation-delay:0s"></circle>
-        <circle cx="200" cy="200" r="196" stroke-width="1"   style="animation-delay:1.15s"></circle>
-        <circle cx="200" cy="200" r="196" stroke-width="1.5" style="animation-delay:2.3s"></circle>
-        <circle cx="200" cy="200" r="196" stroke-width="1"   style="animation-delay:3.45s"></circle>
+        <circle cx="200" cy="200" r="196" style="animation-delay:0s"></circle>
+        <circle cx="200" cy="200" r="196" style="animation-delay:1.25s"></circle>
+        <circle cx="200" cy="200" r="196" stroke-width="1.5" style="animation-delay:2.5s"></circle>
+        <circle cx="200" cy="200" r="196" style="animation-delay:3.75s"></circle>
       </svg>
       <p class="eyebrow mid">Try it</p>
-      <h2>Tell your phone<br>what you need.</h2>
-      <p class="lede" style="text-align:center">
-        A physical Android phone is required — accessibility services, overlay
-        windows and the microphone don't behave meaningfully on an emulator.
-        Running in about two minutes.
+      <h2>Tell your phone what you need.</h2>
+      <p class="lede">
+        A physical Android phone is required — accessibility services, overlay windows
+        and the microphone don't behave meaningfully on an emulator. Running in about
+        two minutes.
       </p>
-      <div class="hero-cta" style="margin-top:32px">
+      <div class="hero-cta" style="margin-top:30px">
         <a class="btn btn-primary mag" href="https://github.com/NITISH-R-G/ScreenSaathi/releases/latest">
           Download ScreenSaathi
           <svg class="ic" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2v9m0 0L4.5 7.5M8 11l3.5-3.5M2.5 13.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1509,10 +1221,10 @@ footer a:hover{color:var(--ink)}
         <a class="btn btn-ghost mag" href="https://github.com/NITISH-R-G/ScreenSaathi#install">Build from source</a>
       </div>
       <div class="steps stagger">
-        <div><div class="stepnum">1</div><b>Install</b><p style="color:var(--ink-3);font-size:13.5px;margin-top:6px">Download and open the APK. Allow install from unknown sources.</p></div>
-        <div><div class="stepnum">2</div><b>Grant</b><p style="color:var(--ink-3);font-size:13.5px;margin-top:6px">Display over other apps → microphone → accessibility service.</p></div>
-        <div><div class="stepnum">3</div><b>Start</b><p style="color:var(--ink-3);font-size:13.5px;margin-top:6px">Tap <em>Start assistant</em>. A small pill appears.</p></div>
-        <div><div class="stepnum">4</div><b>Ask</b><p style="color:var(--ink-3);font-size:13.5px;margin-top:6px">Open any app, tap the pill, and say what you want to do.</p></div>
+        <div class="stepitem"><div class="stepnum">01</div><b>Install</b><p>Download and open the APK. Allow install from unknown sources.</p></div>
+        <div class="stepitem"><div class="stepnum">02</div><b>Grant</b><p>Display over other apps → microphone → accessibility service.</p></div>
+        <div class="stepitem"><div class="stepnum">03</div><b>Start</b><p>Tap <em>Start assistant</em>. A small pill appears.</p></div>
+        <div class="stepitem"><div class="stepnum">04</div><b>Ask</b><p>Open any app, tap the pill, and say what you want to do.</p></div>
       </div>
     </div>
   </div>
@@ -1538,14 +1250,14 @@ footer a:hover{color:var(--ink)}
         </p>
       </div>
       <div>
-        <h3 class="foot-h">Project</h3>
+        <p class="foot-h">Project</p>
         <a href="https://github.com/NITISH-R-G/ScreenSaathi">GitHub</a>
         <a href="https://github.com/NITISH-R-G/ScreenSaathi/releases/latest">Releases</a>
         <a href="https://github.com/NITISH-R-G/ScreenSaathi/blob/main/ROADMAP.md">Roadmap</a>
         <a href="https://github.com/NITISH-R-G/ScreenSaathi/blob/main/src/ScreenSaathi/CONTRIBUTING.md">Contributing</a>
       </div>
       <div>
-        <h3 class="foot-h">Technical</h3>
+        <p class="foot-h">Technical</p>
         <a href="https://github.com/NITISH-R-G/ScreenSaathi/blob/main/src/ScreenSaathi/docs/ARCHITECTURE.md">Architecture</a>
         <a href="https://github.com/NITISH-R-G/ScreenSaathi/blob/main/src/ScreenSaathi/docs/DECISIONS.md">Decisions</a>
         <a href="https://github.com/NITISH-R-G/ScreenSaathi/blob/main/src/ScreenSaathi/docs/DATA_HANDLING.md">Data handling</a>
@@ -1585,103 +1297,78 @@ var clamp = function(v,a,b){ return v<a?a:v>b?b:v; };
 
 /* ══════════════════════════════════════════════════════════════════
    1. THE SPECTRUM
-   One ramp, sampled at a position 0..1. Adjacent stops stay close in
-   hue so a plain sRGB lerp never crosses the grey axis and goes muddy
-   — which is exactly what a naive blue→orange interpolation does.
+   Adjacent stops stay close in hue so a plain sRGB lerp never crosses
+   the grey axis — which is exactly what a naive blue→orange
+   interpolation does.
    ══════════════════════════════════════════════════════════════════ */
 var RAMP = [[61,107,255],[78,99,255],[92,96,255],[124,92,255],[165,95,212],[210,103,156],[255,122,47]];
 function sample(t){
   t = clamp(t,0,1) * (RAMP.length-1);
   var i = Math.min(Math.floor(t), RAMP.length-2), f = t-i, a = RAMP[i], b = RAMP[i+1];
-  return [Math.round(a[0]+(b[0]-a[0])*f), Math.round(a[1]+(b[1]-a[1])*f), Math.round(a[2]+(b[2]-a[2])*f)];
-}
-function rgb(c){ return 'rgb('+c[0]+','+c[1]+','+c[2]+')'; }
-function setFlow(t){
-  var c = sample(t), c2 = sample(clamp(t+.14,0,1));
-  root.style.setProperty('--flow', rgb(c));
-  root.style.setProperty('--flow-2', rgb(c2));
-  root.style.setProperty('--flow-soft','rgba('+c[0]+','+c[1]+','+c[2]+',.16)');
+  return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   2. ONE rAF LOOP
-   Every continuous value on the page is produced here. Reads happen
-   before writes so nothing forces a synchronous layout mid-frame.
+   2. rAF ON DEMAND
+   No permanent loop. Frames are requested by scroll, and a job that is
+   still settling asks for one more by calling keep(). When everything
+   has arrived, the page stops computing entirely.
    ══════════════════════════════════════════════════════════════════ */
-var frameJobs = [], running = false, sy = 0, vh = innerHeight, docH = 1;
-function measure(){
-  vh   = innerHeight;
-  docH = Math.max(1, document.documentElement.scrollHeight - vh);
-}
+var jobs = [], rafId = 0, wantMore = false, sy = 0, vh = innerHeight, docH = 1;
+function keep(){ wantMore = true; }
+function measure(){ vh = innerHeight; docH = Math.max(1, root.scrollHeight - vh); }
 function tick(){
-  var i;
-  for (i=0;i<frameJobs.length;i++) frameJobs[i](sy, vh);
-  running = false;
+  rafId = 0; wantMore = false;
+  for (var i=0;i<jobs.length;i++) jobs[i](sy, vh);
+  if (wantMore) request();
 }
-function request(){ if(!running){ running = true; requestAnimationFrame(tick); } }
+function request(){ if (!rafId) rafId = requestAnimationFrame(tick); }
 function onScroll(){ sy = window.pageYOffset || 0; request(); }
-function onResize(){ measure(); onScroll(); }
 addEventListener('scroll', onScroll, {passive:true});
-addEventListener('resize', onResize, {passive:true});
+addEventListener('resize', function(){ measure(); onScroll(); }, {passive:true});
 measure();
 
-/* Critically-damped spring. Used wherever a value should arrive rather
-   than snap: pointer parallax, magnetic buttons, the nav indicator. */
-function Spring(v,k,d){ this.v=v; this.to=v; this.k=k||.14; this.d=d||.76; this.vel=0; }
+/* critically-damped spring; asks for frames only until it settles */
+function Spring(v,k,d){ this.v=v; this.to=v; this.k=k||.15; this.d=d||.76; this.vel=0; }
 Spring.prototype.step = function(){
+  if (this.v === this.to && this.vel === 0) return this.v;
   this.vel = (this.vel + (this.to - this.v) * this.k) * this.d;
   this.v += this.vel;
-  if (Math.abs(this.vel) < .0004 && Math.abs(this.to-this.v) < .0004) this.v = this.to;
+  if (Math.abs(this.vel) < .0006 && Math.abs(this.to-this.v) < .0006){ this.v = this.to; this.vel = 0; }
+  else keep();
   return this.v;
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   3. THE JOURNEY
-   Scroll position drives --t and --flow. This is the single value that
-   makes the page feel like one continuous surface instead of a stack
-   of sections: everything stateful reads from it.
-   ══════════════════════════════════════════════════════════════════ */
-var prog = $('#prog');
-frameJobs.push(function(y){
+/* ---- ambient colour + progress ---- */
+jobs.push(function(y){
   var t = clamp(y/docH, 0, 1);
   root.style.setProperty('--t', t.toFixed(4));
-  setFlow(t);
+  root.style.setProperty('--flow', sample(t));
 });
-if (!reduce) prog.classList.add('on');
-onScroll();
+if (!reduce) $('#prog').classList.add('on');
 
-/* ---- masthead: blur appears, nav condenses into a pill ---- */
+/* ---- masthead ---- */
 var blur = $('#blur'), nav = $('#nav');
-frameJobs.push(function(y){
-  var on = y > 14;
-  blur.classList.toggle('on', on);
-  nav.classList.toggle('compact', y > 90);
+jobs.push(function(y){
+  blur.classList.toggle('on', y > 14);
+  nav.classList.toggle('compact', y > 88);
 });
 
-/* ---- nav indicator + current section ---- */
+/* ---- nav indicator + section rail ---- */
 var links = $$('#navlinks a'), navind = $('#navind');
 function moveInd(el){
-  /* Some sections (the hero, the problem, the closing) have no nav entry.
-     Fade the indicator out rather than leaving it parked on the last one. */
   if (!el){ navind.style.opacity = '0'; return; }
   navind.style.opacity = '';
   navind.style.setProperty('--x', el.offsetLeft + 'px');
   navind.style.setProperty('--w', el.offsetWidth + 'px');
 }
-/* ---- the ring travelling the story, as a rail of section beads ---- */
-var sections = $$('main section[id]');
-var travel = $('#travel'), tlist = $('#travellist');
-sections.forEach(function(s){
-  var li = document.createElement('li');
-  li.title = s.id;
-  tlist.appendChild(li);
-});
-var beads = $$('#travellist li');
-var current = -1;
-frameJobs.push(function(y){
+var sections = $$('main section[id]'), tlist = $('#travellist'), travel = $('#travel');
+sections.forEach(function(){ tlist.appendChild(document.createElement('li')); });
+var beads = $$('#travellist li'), current = -1;
+jobs.push(function(y){
   var mid = y + vh*0.42, at = 0, i;
   for (i=0;i<sections.length;i++) if (sections[i].offsetTop <= mid) at = i;
-  travel.classList.toggle('on', y > vh*.6);
+  travel.classList.toggle('on', y > vh*.7);
   if (at === current) return;
   current = at;
   for (i=0;i<beads.length;i++){
@@ -1696,224 +1383,146 @@ frameJobs.push(function(y){
   });
   moveInd(active);
 });
-addEventListener('resize', function(){
-  var a = links.filter(function(l){ return l.getAttribute('aria-current')==='true'; })[0];
-  moveInd(a);
-}, {passive:true});
 
 /* ══════════════════════════════════════════════════════════════════
-   4. REVEALS
-   IntersectionObserver + CSS transition. Staggered children get their
-   delay written once, on entry, rather than hard-coded per element.
+   3. REVEALS
    ══════════════════════════════════════════════════════════════════ */
-function revealAll(){
-  $$('.rv,.stagger').forEach(function(el){ el.classList.add('in'); });
-  $$('.code').forEach(function(el){ el.classList.add('in'); });
-  $$('.shot').forEach(function(el){ el.classList.add('in'); });
-}
+function revealAll(){ $$('.rv,.stagger,.code,.shot').forEach(function(el){ el.classList.add('in'); }); }
 if (reduce || !hasIO){
   revealAll();
 } else {
   var io = new IntersectionObserver(function(es){
     es.forEach(function(e){
       if (!e.isIntersecting) return;
-      var el = e.target;
-      if (el.classList.contains('stagger')){
-        Array.prototype.forEach.call(el.children, function(c,i){
-          c.style.setProperty('--d', (i*85)+'ms');
-        });
-      }
-      el.classList.add('in');
-      io.unobserve(el);
+      if (e.target.classList.contains('stagger'))
+        Array.prototype.forEach.call(e.target.children, function(c,i){ c.style.setProperty('--d', (i*80)+'ms'); });
+      e.target.classList.add('in');
+      io.unobserve(e.target);
     });
-  }, {threshold:.14, rootMargin:'0px 0px -7% 0px'});
+  }, {threshold:.12, rootMargin:'0px 0px -6% 0px'});
   $$('.rv,.stagger,.code,.shot').forEach(function(el){ io.observe(el); });
 }
-
-/* generic "run once when it comes into view" helper */
-function whenSeen(el, fn, threshold){
+function whenSeen(el, fn, th){
   if (!el) return;
   if (reduce || !hasIO){ fn(); return; }
   var o = new IntersectionObserver(function(es){
     es.forEach(function(e){ if (e.isIntersecting){ fn(); o.disconnect(); } });
-  }, {threshold: threshold || .3});
+  }, {threshold: th || .3});
   o.observe(el);
 }
-/* "is it on screen right now" helper, for loops that should pause */
-function whileSeen(el, on, off, threshold){
+function whileSeen(el, on, off, th){
   if (!el || !hasIO) return;
   new IntersectionObserver(function(es){
     es.forEach(function(e){ e.isIntersecting ? on() : off(); });
-  }, {threshold: threshold || .3}).observe(el);
+  }, {threshold: th || .3}).observe(el);
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   5. MANDALA FIELD
-   One unit — a line and an arc — repeated around a centre. Not
-   decoration: it is the same construction as the mark, at page scale.
+   4. MANDALA — one unit repeated around a centre, same construction
+   as the mark. Rotation is derived from scroll position, so it costs
+   nothing when the page is still.
    ══════════════════════════════════════════════════════════════════ */
 (function(){
   var svg = $('#mandala'); if (!svg) return;
-  var NS = 'http://www.w3.org/2000/svg', cx = 300, cy = 300, out = '';
+  var cx = 300, cy = 300, out = '';
   [92,148,206,268].forEach(function(r,ri){
     out += '<circle class="orbit" cx="'+cx+'" cy="'+cy+'" r="'+r+'" stroke-width="'+(ri===1?1.1:.7)+'"/>';
     var n = 12 + ri*12;
     for (var i=0;i<n;i++){
-      var a = (i/n) * Math.PI*2 - Math.PI/2;
-      var x1 = cx + Math.cos(a)*(r-5), y1 = cy + Math.sin(a)*(r-5);
-      var x2 = cx + Math.cos(a)*(r+5), y2 = cy + Math.sin(a)*(r+5);
-      out += '<line class="unit" x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'"/>';
+      var a = (i/n)*Math.PI*2 - Math.PI/2;
+      out += '<line class="unit" x1="'+(cx+Math.cos(a)*(r-5)).toFixed(1)+'" y1="'+(cy+Math.sin(a)*(r-5)).toFixed(1)+
+             '" x2="'+(cx+Math.cos(a)*(r+5)).toFixed(1)+'" y2="'+(cy+Math.sin(a)*(r+5)).toFixed(1)+'"/>';
     }
   });
-  out += '<circle class="spark" cx="'+cx+'" cy="'+(cy-268)+'" r="3.5"/>';
   svg.innerHTML = out;
-
   if (reduce) return;
-  /* rotation speed tracks scroll velocity — the field is still when you
-     are, and quickens when the page moves. Motion as a signal of flow. */
-  var rot = 0, vel = 0, last = sy;
-  frameJobs.push(function(y){
-    vel += ((y - last) * .012 - vel) * .12; last = y;
-    rot += .02 + clamp(Math.abs(vel), 0, 1.6);
-    svg.style.transform = 'translate3d(calc(-50% + var(--px,0px)),calc(-50% + var(--py,0px)),0) rotate('+rot.toFixed(2)+'deg)';
+  var field = $('.hero-field');
+  jobs.push(function(y){
+    if (y > vh*1.2) return;                 // stop once the hero is gone
+    field.style.setProperty('--rot', (y*0.035).toFixed(2)+'deg');
   });
-  /* keep it turning even when the page is still */
-  (function spin(){ request(); requestAnimationFrame(spin); })();
 })();
 
-/* ---- pointer parallax on the hero field (desktop, fine pointer) ---- */
-if (fine && !reduce){
-  var field = $('.hero-field'), px = new Spring(0), py = new Spring(0), pActive = false;
-  addEventListener('pointermove', function(e){
-    if (e.pointerType !== 'mouse') return;
-    px.to = ((e.clientX / innerWidth)  - .5) * 34;
-    py.to = ((e.clientY / innerHeight) - .5) * 26;
-    pActive = true;
-  }, {passive:true});
-  frameJobs.push(function(){
-    if (!pActive) return;
-    field.style.setProperty('--px', px.step().toFixed(2)+'px');
-    field.style.setProperty('--py', py.step().toFixed(2)+'px');
-  });
-}
-
-/* ---- magnetic buttons + pointer-tracked card light ---- */
-if (fine && !reduce){
-  $$('.mag').forEach(function(btn){
-    var sx = new Spring(0,.2,.7), sy2 = new Spring(0,.2,.7), live = false;
-    btn.addEventListener('pointerenter', function(){ live = true; });
-    btn.addEventListener('pointermove', function(e){
-      var r = btn.getBoundingClientRect();
-      sx.to = (e.clientX - (r.left + r.width/2))  * .22;
-      sy2.to = (e.clientY - (r.top  + r.height/2)) * .3;
-    });
-    btn.addEventListener('pointerleave', function(){ sx.to = 0; sy2.to = 0; });
-    frameJobs.push(function(){
-      if (!live) return;
-      var a = sx.step(), b = sy2.step();
-      btn.style.transform = 'translate3d('+a.toFixed(2)+'px,'+b.toFixed(2)+'px,0)';
-      if (a === 0 && b === 0 && sx.to === 0) live = false;
-    });
-  });
-  $$('.card').forEach(function(c){
-    c.addEventListener('pointermove', function(e){
-      var r = c.getBoundingClientRect();
-      c.style.setProperty('--mx', ((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
-      c.style.setProperty('--my', ((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
-    }, {passive:true});
-  });
-}
-
 /* ══════════════════════════════════════════════════════════════════
-   6. HERO CINEMA
-   The real loop, played out: idle → listening → thinking → guiding.
-   Every string below is the product's own — Phrases.kt, PillLabels.kt,
-   and the line visible in the capture. Frames are the real captures;
-   the overlay converges and then dissolves so the highlight you end on
-   is the one the app actually drew.
+   5. HERO CINEMA
+   Every string is the product's own — Phrases.kt, PillLabels.kt, and
+   the line visible in the capture. Frames are the real captures.
+
+   `st` is the SEMANTIC state colour. It is what fixes the v1 bug where
+   the agent printed ACT in blue because it read the scroll-driven
+   ambient colour instead of its own state.
    ══════════════════════════════════════════════════════════════════ */
 var CAPS = [
   "Waiting quietly. Tap it, or circle anything on screen.",
   "Listening. The waveform is real microphone amplitude, not an animation.",
-  "The ring sits on Uber's actual “Where to?” field — resolved from the live tree, not a fixed coordinate.",
+  "On Uber's real “Where to?” field — resolved from the live tree, not a fixed coordinate.",
   "The keyboard opened, so the assistant lifted itself clear of it automatically."
 ];
-var imgs  = $$('#screen img');
-var chips = $$('.state-chip');
-var cap   = $('#cap');
-var focus = $('#focus');
-var agent = $('#agent'), agState = $('#agState'), agStage = $('#agStage');
+var IDLE_ST = '#8A8FA8';
+var imgs  = $$('#screen img'), chips = $$('.state-chip'), cap = $('#cap');
+var focusEl = $('#focus'), agent = $('#agent');
+var agState = $('#agState'), agStage = $('#agStage');
 var agUser = $('#agUser'), agUserT = $('#agUserT');
-var agSay = $('#agSay'),  agSayT  = $('#agSayT');
-var agSrc = $('#agSrc');
+var agSay = $('#agSay'), agSayT = $('#agSayT'), agSrc = $('#agSrc');
 var idx = 0, manual = false;
 
+function setState(colour){ agent.style.setProperty('--st', colour); }
 function frame(i){
   idx = i;
   imgs.forEach(function(im){ im.classList.toggle('on', +im.dataset.i === i); });
   chips.forEach(function(c){ c.setAttribute('aria-selected', String(+c.dataset.i === i)); });
   cap.textContent = CAPS[i];
 }
-
-/* character scheduler — rAF, not setInterval, so it stays on the
-   compositor's clock and pauses with the tab */
 function stream(node, holder, text, speed, done){
-  if (reduce){ node.textContent = text; if(done) done(); return function(){}; }
-  var i = 0, t0 = 0, cancelled = false;
+  if (reduce){ node.textContent = text; if (done) done(); return function(){}; }
+  var i = 0, t0 = 0, dead = false;
   holder.classList.add('streaming');
   node.textContent = '';
   function run(ts){
-    if (cancelled) return;
+    if (dead) return;
     if (!t0) t0 = ts;
-    var want = Math.min(text.length, Math.floor((ts - t0) / speed));
-    if (want !== i){ i = want; node.textContent = text.slice(0, i); }
+    var want = Math.min(text.length, Math.floor((ts-t0)/speed));
+    if (want !== i){ i = want; node.textContent = text.slice(0,i); }
     if (i < text.length) requestAnimationFrame(run);
     else { holder.classList.remove('streaming'); if (done) done(); }
   }
   requestAnimationFrame(run);
-  return function(){ cancelled = true; holder.classList.remove('streaming'); };
+  return function(){ dead = true; holder.classList.remove('streaming'); };
 }
 
-/* PillLabels.kt — the pill's own status, English column */
+/* PillLabels.kt English column; stage names are the architecture's own. */
 var BEATS = [
-  { at:0,     state:'ScreenSaathi',  stage:'IDLE',      frame:0, t:.02 },
-  { at:1100,  state:'Listening…',    stage:'PERCEIVE',  frame:1, t:.06, user:'Help me book a taxi' },
-  { at:3500,  state:'Thinking…',     stage:'REASON',    frame:1, t:.5 },
-  { at:4700,  state:'Guiding you',   stage:'ACT',       frame:2, t:.92, say:'Here it is.', armed:true, src:true },
-  { at:7400,  settle:true },
-  { at:9800,  reset:true }
+  { at:0,    state:'ScreenSaathi', stage:'IDLE',     frame:0, st:IDLE_ST },
+  { at:1000, state:'Listening…',   stage:'PERCEIVE', frame:1, st:'#3D6BFF', user:'Help me book a taxi' },
+  { at:3400, state:'Thinking…',    stage:'REASON',   frame:1, st:'#7C5CFF' },
+  { at:4700, state:'Guiding you',  stage:'ACT',      frame:2, st:'#FF7A2F', say:'Here it is.', armed:true, src:true },
+  { at:7400, settle:true },
+  { at:9900, reset:true }
 ];
 var cine = { on:false, t0:0, i:0, cancel:null, raf:0 };
 
 function applyBeat(b){
   if (b.reset){
-    cine.i = 0; cine.t0 = 0;
     agUserT.textContent = ''; agSayT.textContent = '';
     agUser.classList.remove('in'); agSay.classList.remove('in');
     agSrc.classList.remove('in');
-    focus.classList.remove('armed','settled');
+    focusEl.classList.remove('armed','settled');
     agent.classList.remove('live');
-    frame(0);
+    setState(IDLE_ST); frame(0);
     agState.textContent = 'ScreenSaathi'; agStage.textContent = 'IDLE';
     return;
   }
-  if (b.settle){ focus.classList.add('settled'); agent.classList.remove('live'); return; }
+  if (b.settle){ focusEl.classList.add('settled'); agent.classList.remove('live'); return; }
+  if (b.st)    setState(b.st);
   if (b.state) agState.textContent = b.state;
   if (b.stage) agStage.textContent = b.stage;
   if (b.frame !== undefined) frame(b.frame);
-  if (b.armed) focus.classList.add('armed');
+  if (b.armed) focusEl.classList.add('armed');
   if (b.src)   agSrc.classList.add('in');
   agent.classList.add('live');
-  if (b.user){
-    agUser.classList.add('in');
-    cine.cancel = stream(agUserT, agUser, b.user, 42);
-  }
-  if (b.say){
-    agSay.classList.add('in');
-    cine.cancel = stream(agSayT, agSay, b.say, 46);
-  }
+  if (b.user){ agUser.classList.add('in'); cine.cancel = stream(agUserT, agUser, b.user, 42); }
+  if (b.say){  agSay.classList.add('in');  cine.cancel = stream(agSayT, agSay, b.say, 46); }
 }
-
 function cineFrame(ts){
   if (!cine.on) return;
   if (!cine.t0) cine.t0 = ts;
@@ -1925,203 +1534,183 @@ function cineFrame(ts){
   }
   cine.raf = requestAnimationFrame(cineFrame);
 }
-function cineStart(){
-  if (manual || reduce || cine.on) return;
-  cine.on = true; cine.t0 = 0; cine.i = 0;
-  cine.raf = requestAnimationFrame(cineFrame);
+function cineStart(){ if (manual || reduce || cine.on) return; cine.on = true; cine.t0 = 0; cine.i = 0; cine.raf = requestAnimationFrame(cineFrame); }
+function cineStop(){ cine.on = false; if (cine.raf) cancelAnimationFrame(cine.raf); if (cine.cancel) cine.cancel(); }
+
+/* Manual control wins permanently — nothing should move under someone
+   who has just taken hold of it. */
+var CHIP_ST = ['#8A8FA8','#3D6BFF','#FF7A2F','#7C5CFF'];
+function manualFrame(i){
+  manual = true; cineStop();
+  focusEl.classList.remove('armed','settled');
+  setState(CHIP_ST[i]); frame(i);
 }
-function cineStop(){
-  cine.on = false;
-  if (cine.raf) cancelAnimationFrame(cine.raf);
-  if (cine.cancel) cine.cancel();
-}
-/* Manual control always wins, and it wins permanently — nothing should
-   move under someone who has just taken hold of it. */
 chips.forEach(function(c){
-  c.addEventListener('click', function(){
-    manual = true; cineStop();
-    focus.classList.remove('armed','settled');
-    frame(+c.dataset.i);
-  });
+  c.addEventListener('click', function(){ manualFrame(+c.dataset.i); });
   c.addEventListener('keydown', function(e){
     var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
     if (!d) return;
     e.preventDefault();
-    manual = true; cineStop();
-    focus.classList.remove('armed','settled');
     var n = (idx + d + chips.length) % chips.length;
-    chips[n].focus(); frame(n);
+    chips[n].focus(); manualFrame(n);
   });
 });
 
 if (reduce){
-  /* the informative end-state, held still */
-  frame(2);
+  setState('#FF7A2F'); frame(2);
   agState.textContent = 'Guiding you'; agStage.textContent = 'ACT';
   agUserT.textContent = 'Help me book a taxi'; agUser.classList.add('in');
   agSayT.textContent  = 'Here it is.';         agSay.classList.add('in');
   agSrc.classList.add('in');
 } else {
-  whileSeen($('#screen'), cineStart, cineStop, .35);
+  setState(IDLE_ST);
+  whileSeen($('#screen'), cineStart, cineStop, .3);
 }
 
-/* the device tilts a little toward the pointer — 6 degrees, no more */
+/* subtle device tilt toward the pointer, desktop only */
 if (fine && !reduce){
-  var dev = $('#device'), rx = new Spring(0,.1,.8), ry = new Spring(0,.1,.8), devLive = false;
+  var dev = $('#device'), rx = new Spring(0,.11,.8), ry = new Spring(0,.11,.8), live = false;
   dev.addEventListener('pointermove', function(e){
     var r = dev.getBoundingClientRect();
-    ry.to = ((e.clientX - (r.left+r.width/2)) / r.width) * 9;
-    rx.to = -((e.clientY - (r.top+r.height/2)) / r.height) * 6;
-    devLive = true;
+    ry.to = ((e.clientX-(r.left+r.width/2))/r.width)*8;
+    rx.to = -((e.clientY-(r.top+r.height/2))/r.height)*5;
+    live = true; request();
   }, {passive:true});
-  dev.addEventListener('pointerleave', function(){ rx.to = 0; ry.to = 0; });
-  frameJobs.push(function(){
-    if (!devLive) return;
-    dev.style.transform = 'perspective(1000px) rotateX('+rx.step().toFixed(2)+'deg) rotateY('+ry.step().toFixed(2)+'deg)';
+  dev.addEventListener('pointerleave', function(){ rx.to = 0; ry.to = 0; request(); });
+  jobs.push(function(){
+    if (!live) return;
+    var a = rx.step(), b = ry.step();
+    dev.style.transform = 'perspective(1000px) rotateX('+a.toFixed(2)+'deg) rotateY('+b.toFixed(2)+'deg)';
+    if (a === 0 && b === 0 && rx.to === 0) live = false;
+  });
+  $$('.mag').forEach(function(btn){
+    var sx = new Spring(0,.22,.7), sy2 = new Spring(0,.22,.7), on = false;
+    btn.addEventListener('pointerenter', function(){ on = true; request(); });
+    btn.addEventListener('pointermove', function(e){
+      var r = btn.getBoundingClientRect();
+      sx.to = (e.clientX-(r.left+r.width/2))*.2;
+      sy2.to = (e.clientY-(r.top+r.height/2))*.28;
+      request();
+    });
+    btn.addEventListener('pointerleave', function(){ sx.to = 0; sy2.to = 0; request(); });
+    jobs.push(function(){
+      if (!on) return;
+      var a = sx.step(), b = sy2.step();
+      btn.style.transform = 'translate3d('+a.toFixed(2)+'px,'+b.toFixed(2)+'px,0)';
+      if (a === 0 && b === 0 && sx.to === 0) on = false;
+    });
   });
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   7. THE LOOP SECTION — one runner, five stations
+   6. SCROLL-DRIVEN SEQUENCES
    ══════════════════════════════════════════════════════════════════ */
-(function(){
-  var loop = $('#loop'); if (!loop) return;
-  var steps = $$('.step', loop), runner = $('#runner');
-  frameJobs.push(function(y){
-    var r = loop.getBoundingClientRect();
-    var p = clamp((vh*.78 - r.top) / (r.height + vh*.34), 0, 1);
-    if (runner) runner.style.setProperty('--rx', (p * loop.offsetWidth).toFixed(1)+'px');
+(function(){                                     /* the loop */
+  var j = $('#journey'); if (!j) return;
+  var steps = $$('.j-step', j), runner = $('#runner');
+  jobs.push(function(){
+    var r = j.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > vh) return;
+    var p = clamp((vh*.76 - r.top) / (r.height + vh*.3), 0, 1);
+    runner.style.setProperty('--rx', (p * j.offsetWidth * .88).toFixed(1)+'px');
     var lit = Math.round(p * steps.length);
     steps.forEach(function(s,i){ s.classList.toggle('lit', i < lit); });
   });
 })();
 
-/* ══════════════════════════════════════════════════════════════════
-   8. CIRCLE → AGENT
-   ══════════════════════════════════════════════════════════════════ */
-whenSeen($('#draw'), function(){ $('#draw').classList.add('go'); }, .4);
+(function(){                                     /* circle beats */
+  var b = $('#beats'); if (!b) return;
+  var items = $$('.beat', b);
+  jobs.push(function(){
+    var r = b.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > vh) return;
+    var p = clamp((vh*.74 - r.top) / (r.height*.85), 0, 1);
+    items.forEach(function(it,i){ it.classList.toggle('lit', p > (i+.3)/items.length); });
+  });
+  whenSeen($('#draw'), function(){ $('#draw').classList.add('go'); }, .35);
+})();
 
-/* flows light in order; the second one is longer, and that is the point */
-$$('.flowline').forEach(function(fl){
-  var nodes = $$('.node', fl);
-  whenSeen(fl, function(){
-    if (reduce){ nodes.forEach(function(n){ n.classList.add('lit'); }); return; }
-    nodes.forEach(function(n,i){ setTimeout(function(){ n.classList.add('lit'); }, 160 + i*230); });
-  }, .5);
-});
-
-(function(){
-  var tl = $('#tl'); if (!tl) return;
-  var items = $$('.tl-item', tl);
-  frameJobs.push(function(){
-    var r = tl.getBoundingClientRect();
-    var p = clamp((vh*.72 - r.top) / (r.height*.85), 0, 1);
-    tl.style.setProperty('--tp', p.toFixed(3));
-    items.forEach(function(it,i){ it.classList.toggle('lit', p > (i+.35)/items.length); });
+(function(){                                     /* architecture map */
+  var m = $('#map'); if (!m) return;
+  var tiers = $$('.tier', m);
+  jobs.push(function(){
+    var r = m.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > vh) return;
+    var p = clamp((vh*.78 - r.top) / (r.height*.8), 0, 1);
+    var lit = Math.round(p * tiers.length);
+    tiers.forEach(function(t,i){ t.classList.toggle('lit', i < lit); });
   });
 })();
 
 /* ══════════════════════════════════════════════════════════════════
-   9. SAFETY GATE
-   Selecting a row runs the same three-stage path every time; only the
-   verdict differs. The level names are ActionPolicy.Level, verbatim.
+   7. SAFETY GATE — level names are ActionPolicy.Level, verbatim
    ══════════════════════════════════════════════════════════════════ */
 (function(){
-  var rows = $$('#policy tr'), gb1 = $('#gb1'), gb2 = $('#gb2');
-  var outs = [null, $('#go1'), $('#go2'), $('#go3')];
-  var verdict = $('#verdict'), timers = [];
-  function clearAll(){
+  var rows = $$('#policy tr'), ps1 = $('#ps1'), ps2 = $('#ps2');
+  var outs = [null, $('#v1'), $('#v2'), $('#v3')], verdict = $('#verdict'), timers = [];
+  function clear(){
     timers.forEach(clearTimeout); timers = [];
-    gb1.classList.remove('on'); gb2.classList.remove('on');
+    ps1.classList.remove('on'); ps2.classList.remove('on');
     outs[1].classList.remove('on'); outs[2].classList.remove('on'); outs[3].classList.remove('on');
   }
   function run(tr){
-    clearAll();
+    clear();
     rows.forEach(function(r){ r.classList.toggle('sel', r === tr); });
-    var o = +tr.dataset.o, step = reduce ? 0 : 1;
-    timers.push(setTimeout(function(){ gb1.classList.add('on'); }, step*80));
-    timers.push(setTimeout(function(){ gb2.classList.add('on'); }, step*520));
+    var o = +tr.dataset.o, s = reduce ? 0 : 1;
+    timers.push(setTimeout(function(){ ps1.classList.add('on'); }, s*70));
+    timers.push(setTimeout(function(){ ps2.classList.add('on'); }, s*480));
     timers.push(setTimeout(function(){
       outs[o].classList.add('on');
-      verdict.innerHTML = '<code>' + tr.dataset.lv + '</code> — ' + tr.dataset.r;
-    }, step*980));
+      verdict.innerHTML = '<code>'+tr.dataset.lv+'</code> — '+tr.dataset.r;
+    }, s*900));
   }
   rows.forEach(function(tr){
     tr.addEventListener('click', function(){ run(tr); });
-    tr.addEventListener('keydown', function(e){
-      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); run(tr); }
-    });
+    tr.addEventListener('keydown', function(e){ if (e.key==='Enter'||e.key===' '){ e.preventDefault(); run(tr); } });
   });
-  whenSeen($('#gateviz'), function(){ run(rows[3]); }, .45);
+  whenSeen($('#pipeline'), function(){ run(rows[3]); }, .4);
 })();
 
 /* ══════════════════════════════════════════════════════════════════
-   10. ARCHITECTURE — the ring travels the spine
-   ══════════════════════════════════════════════════════════════════ */
-(function(){
-  var arch = $('#arch'); if (!arch) return;
-  var nodes = $$('.arch-node', arch), fill = $('#archfill');
-  frameJobs.push(function(){
-    var r = arch.getBoundingClientRect();
-    var p = clamp((vh*.74 - r.top) / (r.height*.88), 0, 1);
-    fill.style.height = (p*100).toFixed(1)+'%';
-    var lit = Math.round(p * nodes.length);
-    nodes.forEach(function(n,i){ n.classList.toggle('lit', i < lit); });
-  });
-})();
-
-/* ══════════════════════════════════════════════════════════════════
-   11. OPEN SOURCE — a contribution moving into the product
+   8. OPEN SOURCE — a contribution moving into the product
    ══════════════════════════════════════════════════════════════════ */
 (function(){
   var ship = $('#ship'); if (!ship) return;
   var nodes = $$('.ship-node', ship), i = 0, timer = null;
+  if (reduce){ nodes.forEach(function(n){ n.classList.add('on'); }); return; }
   function step(){
     nodes.forEach(function(n,j){ n.classList.toggle('on', j <= i); });
-    i++;
-    if (i > nodes.length){ i = 0; nodes.forEach(function(n){ n.classList.remove('on'); }); }
+    i++; if (i > nodes.length){ i = 0; nodes.forEach(function(n){ n.classList.remove('on'); }); }
   }
-  if (reduce){ nodes.forEach(function(n){ n.classList.add('on'); }); return; }
-  whileSeen(ship, function(){
-    if (!timer){ step(); timer = setInterval(step, 720); }
-  }, function(){
-    if (timer){ clearInterval(timer); timer = null; }
-  }, .5);
+  whileSeen(ship, function(){ if (!timer){ step(); timer = setInterval(step, 760); } },
+                  function(){ if (timer){ clearInterval(timer); timer = null; } }, .5);
 })();
 
 /* ══════════════════════════════════════════════════════════════════
-   12. LANGUAGES
+   9. LANGUAGES
    en/hi/ta are authored in the product; the rest are labelled planned.
-   Replies (`s`) and state labels (`st`) are verbatim from Phrases.kt
-   and PillLabels.kt — not translations written for this page. If the
-   app's wording changes, this should too.
+   Replies and state labels are verbatim from Phrases.kt / PillLabels.kt,
+   not translations written for this page.
    ══════════════════════════════════════════════════════════════════ */
 (function(){
   var L = {
-    en:{u:"Help me book a taxi",                     s:"Which app would you like to use?",           st:"Guiding you",       full:true},
-    hi:{u:"टैक्सी बुक करने में मेरी मदद करो",              s:"आप कौन सा ऐप इस्तेमाल करना चाहेंगे?",              st:"रास्ता दिखा रहा हूँ",  full:true},
-    ta:{u:"எனக்கு ஒரு டாக்ஸி புக் பண்ண உதவி செய்",      s:"எந்த ஆப்பைப் பயன்படுத்த விரும்புகிறீர்கள்?",       st:"வழிகாட்டுகிறேன்",    full:true},
-    te:{u:"టాక్సీ బుక్ చేయడానికి నాకు సహాయం చేయి",       s:"Which app would you like to use?",           st:"Guiding you",       full:false},
-    kn:{u:"ಟ್ಯಾಕ್ಸಿ ಬುಕ್ ಮಾಡಲು ನನಗೆ ಸಹಾಯ ಮಾಡು",        s:"Which app would you like to use?",           st:"Guiding you",       full:false},
-    bn:{u:"আমাকে একটা ট্যাক্সি বুক করতে সাহায্য করো",     s:"Which app would you like to use?",           st:"Guiding you",       full:false}
+    en:{u:"Help me book a taxi",                  s:"Which app would you like to use?",        st:"Guiding you",      full:true},
+    hi:{u:"टैक्सी बुक करने में मेरी मदद करो",           s:"आप कौन सा ऐप इस्तेमाल करना चाहेंगे?",           st:"रास्ता दिखा रहा हूँ", full:true},
+    ta:{u:"எனக்கு ஒரு டாக்ஸி புக் பண்ண உதவி செய்",   s:"எந்த ஆப்பைப் பயன்படுத்த விரும்புகிறீர்கள்?",    st:"வழிகாட்டுகிறேன்",  full:true},
+    te:{u:"టాక్సీ బుక్ చేయడానికి నాకు సహాయం చేయి",    s:"Which app would you like to use?",        st:"Guiding you",      full:false},
+    kn:{u:"ಟ್ಯಾಕ್ಸಿ ಬುಕ್ ಮಾಡಲು ನನಗೆ ಸಹಾಯ ಮಾಡು",     s:"Which app would you like to use?",        st:"Guiding you",      full:false},
+    bn:{u:"আমাকে একটা ট্যাক্সি বুক করতে সাহায্য করো",  s:"Which app would you like to use?",        st:"Guiding you",      full:false}
   };
   var TAG = {en:"en-IN",hi:"hi-IN",ta:"ta-IN",te:"te-IN",kn:"kn-IN",bn:"bn-IN"};
-  var lu = $('#lu'), ls = $('#ls'), lst = $('#lst'), ln = $('#ln');
-  var tabs = $$('.lang-tab');
-
+  var lu = $('#lu'), ls = $('#ls'), lst = $('#lst'), ln = $('#ln'), tabs = $$('.lang-tab');
   function swap(el, text, lang){
     if (reduce){ el.textContent = text; el.lang = lang; return; }
     el.classList.add('out');
-    setTimeout(function(){
-      el.textContent = text; el.lang = lang;
-      el.classList.remove('out');
-    }, 190);
+    setTimeout(function(){ el.textContent = text; el.lang = lang; el.classList.remove('out'); }, 180);
   }
   function setLang(code){
     var d = L[code], tag = TAG[code], reply = d.full ? tag : 'en-IN';
-    swap(lu, d.u, tag);
-    swap(ls, d.s, reply);
-    swap(lst, d.st, reply);
+    swap(lu, d.u, tag); swap(ls, d.s, reply); swap(lst, d.st, reply);
     ln.lastElementChild.textContent = d.full
       ? "Verbatim from the app: these are the strings in Phrases.kt and PillLabels.kt."
       : "Speech is recognised, but the assistant's own wording still falls back to English — which is why this is marked planned rather than supported.";
@@ -2132,19 +1721,7 @@ $$('.flowline').forEach(function(fl){
   setLang('en');
 })();
 
-/* ══════════════════════════════════════════════════════════════════
-   13. CLOSING — the spectrum finishes its journey
-   ══════════════════════════════════════════════════════════════════ */
-whenSeen($('#cta'), function(){ $('#cta').classList.add('in'); }, .3);
-
-/* headline gradient drifts with the journey, so the first thing you see
-   and the last thing you see are the same system */
-(function(){
-  var h = $('#h1g'); if (!h || reduce) return;
-  frameJobs.push(function(y){
-    h.style.setProperty('--gp', clamp(y/vh, 0, 1) * 60 + '%');
-  });
-})();
+whenSeen($('#close'), function(){ $('#close').classList.add('in'); }, .25);
 
 onScroll();
 })();
