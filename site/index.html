@@ -282,7 +282,7 @@ h1{font-size:clamp(37px,4.7vw,62px);letter-spacing:-.035em}
 /* ---------- the stage: device + agent read as one object ---------- */
 .stage{display:grid;justify-items:center;gap:0}
 .device{
-  position:relative;width:232px;
+  position:relative;width:214px;
   border-radius:34px;padding:8px;
   background:linear-gradient(158deg,#31344A,#111219 62%);
   box-shadow:0 44px 96px -34px rgba(0,0,0,.95),0 0 0 1px var(--line-strong),
@@ -311,10 +311,10 @@ h1{font-size:clamp(37px,4.7vw,62px);letter-spacing:-.035em}
 .focus.settled .ringG rect,.focus.settled .dimlayer{opacity:0}
 
 /* the connector makes device + agent one continuous instrument */
-.tether{width:1px;height:20px;background:linear-gradient(180deg,var(--st),transparent);opacity:.75;transition:background .7s var(--ease)}
+.tether{width:1px;height:14px;background:linear-gradient(180deg,var(--st),transparent);opacity:.75;transition:background .7s var(--ease)}
 
 .agent{
-  width:100%;max-width:322px;border-radius:var(--r-lg);
+  width:100%;max-width:336px;border-radius:var(--r-lg);
   border:1px solid var(--line);background:linear-gradient(180deg,var(--surface-2),var(--surface));
   box-shadow:0 22px 54px -32px rgba(0,0,0,.9);overflow:hidden;
 }
@@ -335,12 +335,58 @@ h1{font-size:clamp(37px,4.7vw,62px);letter-spacing:-.035em}
   margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
   color:color-mix(in oklab,var(--st) 60%,#fff);transition:color .5s var(--ease);
 }
+/* min-height keeps the panel from resizing between beats; the work area below
+   collapses on act/idle so every state lands within a few px of it instead of
+   leaving the box visibly underfilled. */
 .agent-body{padding:13px 14px;display:grid;gap:9px;min-height:92px;align-content:start}
+.agent-work{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease-out)}
+.agent[data-mode="listen"] .agent-work,.agent[data-mode="think"] .agent-work{grid-template-rows:1fr}
+.agent-work-in{overflow:hidden;min-height:0;display:grid;align-items:center}
+.wave,.track{grid-area:1/1;opacity:0;transition:opacity .35s var(--ease);height:26px;display:flex;align-items:center}
+.agent[data-mode="listen"] .wave{opacity:1}
+.agent[data-mode="think"] .track{opacity:1}
+.wave{gap:3px}
+.wave i{width:2px;height:20px;border-radius:2px;background:var(--st);transform:scaleY(.22);transform-origin:center;transition:background .5s var(--ease)}
+@media(prefers-reduced-motion:no-preference){
+  .agent[data-mode="listen"] .wave i{animation:amp 1.1s ease-in-out infinite}
+}
+@keyframes amp{0%,100%{transform:scaleY(.22)}50%{transform:scaleY(1)}}
+.wave i:nth-child(1){animation-delay:0.00s;height:8px}
+.wave i:nth-child(2){animation-delay:0.11s;height:12px}
+.wave i:nth-child(3){animation-delay:0.22s;height:17px}
+.wave i:nth-child(4){animation-delay:0.33s;height:22px}
+.wave i:nth-child(5){animation-delay:0.44s;height:20px}
+.wave i:nth-child(6){animation-delay:0.55s;height:14px}
+.wave i:nth-child(7){animation-delay:0.66s;height:10px}
+.wave i:nth-child(8){animation-delay:0.00s;height:16px}
+.wave i:nth-child(9){animation-delay:0.11s;height:24px}
+.wave i:nth-child(10){animation-delay:0.22s;height:20px}
+.wave i:nth-child(11){animation-delay:0.33s;height:13px}
+.wave i:nth-child(12){animation-delay:0.44s;height:9px}
+.wave i:nth-child(13){animation-delay:0.55s;height:15px}
+.wave i:nth-child(14){animation-delay:0.66s;height:21px}
+.wave i:nth-child(15){animation-delay:0.00s;height:18px}
+.wave i:nth-child(16){animation-delay:0.11s;height:12px}
+.wave i:nth-child(17){animation-delay:0.22s;height:9px}
+.wave i:nth-child(18){animation-delay:0.33s;height:7px}
+
+.track{gap:8px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;white-space:nowrap}
+.track span{color:var(--ink-4)}
+@media(prefers-reduced-motion:no-preference){
+  .agent[data-mode="think"] .track span{animation:lightup 1.25s var(--ease) infinite}
+  .agent[data-mode="think"] .track span:nth-child(2){animation-delay:.16s}
+  .agent[data-mode="think"] .track span:nth-child(3){animation-delay:.32s}
+}
+@keyframes lightup{0%,100%{color:var(--ink-4)}42%{color:color-mix(in oklab,var(--st) 55%,#fff)}}
 .agent-line{font-size:14px;line-height:1.5;opacity:0;transform:translateY(5px);transition:opacity .45s var(--ease),transform .45s var(--ease-out)}
 .agent-line.in{opacity:1;transform:none}
 .agent-who{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-4);margin-bottom:4px}
 .agent-user{color:var(--ink)}
-.agent-say{color:var(--ink-2)}
+/* The response line only exists once there is a response. Taking it out of
+   flow until then lets the work area occupy exactly the space it would have
+   used, so the panel height never changes across the whole sequence. */
+.agent-say{color:var(--ink-2);display:none}
+.agent-say.in{display:block}
 .caret{display:inline-block;width:2px;height:1em;vertical-align:-2px;margin-left:1px;background:var(--st);opacity:0}
 @media(prefers-reduced-motion:no-preference){.streaming .caret{opacity:1;animation:blink 1s steps(2,start) infinite}}
 @keyframes blink{50%{opacity:0}}
@@ -384,6 +430,12 @@ h1{font-size:clamp(37px,4.7vw,62px);letter-spacing:-.035em}
    PROBLEM — a statement, then two columns of plain text on the canvas
    ====================================================================== */
 .statement{font-size:clamp(31px,5.1vw,60px);letter-spacing:-.032em;line-height:1.04;max-width:15ch}
+/* The heading block used to sit alone on the left with the right half empty.
+   The supporting paragraph moves into that column and is set against the
+   heading's baseline, which fills the measure without adding any content. */
+.head2{display:grid;grid-template-columns:1.06fr .94fr;gap:46px;align-items:end}
+.head2 .lede{margin-top:0;max-width:44ch;padding-bottom:6px}
+@media(max-width:900px){.head2{grid-template-columns:1fr;gap:18px;align-items:start}.head2 .lede{padding-bottom:0}}
 .split{display:grid;grid-template-columns:1fr 1px 1fr;gap:40px;margin-top:56px;align-items:stretch}
 @media(max-width:840px){.split{grid-template-columns:1fr;gap:32px}.split .divider{display:none}}
 .divider{background:linear-gradient(180deg,transparent,var(--line-strong) 22% 78%,transparent);min-height:100%}
@@ -649,6 +701,23 @@ footer a:hover{color:var(--ink)}
   footer a{padding:11px 0}
 }
 
+/* Print, PDF, reader modes and any renderer that never scrolls: the reveal
+   states are scroll-triggered, so without this the page prints blank below the
+   fold. Content is forced visible; only fixed chrome is dropped. */
+@media print{
+  .rv,.stagger>*{opacity:1!important;transform:none!important;filter:none!important}
+  .beat,.tier,.j-step,.plainlist.fading li{opacity:1!important;filter:none!important}
+  .j-step::before,.beat-ring circle,.tier-label .bead{transform:none!important;opacity:1!important}
+  .shot .nodebox,.draw .lasso{stroke-dashoffset:0!important;opacity:.9!important}
+  .code .row{opacity:1!important;transform:none!important}
+  .agent-work{grid-template-rows:0fr!important}
+  .agent-src{grid-template-rows:1fr!important;opacity:1!important}
+  .progress,.travel,.masthead,.cta-rings,.hero-field{display:none!important}
+  .ship-node{color:var(--ink-2)!important}
+  section{padding:28px 0!important;break-inside:avoid}
+  .hero{min-height:0!important;padding:16px 0!important}
+}
+
 /* Reduced motion: same content, same hierarchy, no choreography. */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{
@@ -776,6 +845,16 @@ footer a:hover{color:var(--ink)}
         </div>
         <div class="agent-body">
           <p class="agent-line agent-user" id="agUser"><span class="agent-who">You</span><span id="agUserT"></span><i class="caret" aria-hidden="true"></i></p>
+          <!-- The reserved area is not padding: each state fills it with what
+               the state machine is actually doing. Listening shows microphone
+               amplitude — the real pill draws a waveform here. Thinking shows
+               the perception classes the request passes through, by name. -->
+          <div class="agent-work" aria-hidden="true">
+            <div class="agent-work-in">
+              <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="track"><span>ScreenSnapshot</span><span>SelectionResolver</span><span>PerceptionStrategy</span></div>
+            </div>
+          </div>
           <p class="agent-line agent-say" id="agSay"><span class="agent-who">ScreenSaathi</span><span id="agSayT"></span></p>
         </div>
         <div class="agent-src" id="agSrc"><span>
@@ -800,7 +879,15 @@ footer a:hover{color:var(--ink)}
   <div class="wrap">
     <div class="rv">
       <p class="eyebrow">The problem</p>
-      <h2 class="statement">Technology got easier. Interfaces got harder.</h2>
+      <div class="head2">
+        <h2 class="statement">Technology got easier. Interfaces got harder.</h2>
+        <p class="lede">
+          A person can know exactly what they want to do and still be stuck, because
+          today's interface expects them to already know where it hid the button.
+          People shouldn't have to learn the interface before they can use it —
+          the software should learn how to help them.
+        </p>
+      </div>
     </div>
 
     <div class="split rv">
@@ -826,10 +913,6 @@ footer a:hover{color:var(--ink)}
       </div>
     </div>
 
-    <p class="lede rv" style="margin-top:52px;max-width:52ch">
-      People shouldn't have to learn the interface before they can use it.
-      The software should learn how to help them.
-    </p>
   </div>
 </section>
 
@@ -924,11 +1007,13 @@ footer a:hover{color:var(--ink)}
   <div class="wrap">
     <div class="rv">
       <p class="eyebrow">Circle to understand</p>
-      <h2>Circle anything.<br>Ask anything.<br>Get help doing it.</h2>
-      <p class="lede">
+            <div class="head2">
+        <h2>Circle anything.<br>Ask anything.<br>Get help doing it.</h2>
+        <p class="lede">
         The difference isn't the circle — it's what happens after. ScreenSaathi keeps
         what you selected, so "okay, help me use it" still knows what <em>it</em> is.
       </p>
+      </div>
     </div>
 
     <div class="circle-stage">
@@ -1036,12 +1121,14 @@ footer a:hover{color:var(--ink)}
   <div class="wrap">
     <div class="rv">
       <p class="eyebrow">Safety</p>
-      <h2>The model proposes.<br>Policy decides.</h2>
-      <p class="lede">
+            <div class="head2">
+        <h2>The model proposes.<br>Policy decides.</h2>
+        <p class="lede">
         An assistant that can read your screen needs limits a model cannot argue its
         way past. Actions are classified before anything is drawn, by deterministic
         code — not by asking the model whether it thinks it should proceed.
       </p>
+      </div>
     </div>
 
     <div class="pipeline rv" id="pipeline">
@@ -1095,13 +1182,15 @@ footer a:hover{color:var(--ink)}
   <div class="wrap">
     <div class="rv">
       <p class="eyebrow">Architecture</p>
-      <h2>Provider-agnostic<br>by construction.</h2>
-      <p class="lede">
+            <div class="head2">
+        <h2>Provider-agnostic<br>by construction.</h2>
+        <p class="lede">
         No vendor name appears in any AI interface in the codebase. Swapping or adding
         a model provider is one class, not a rewrite, and the app is fully functional
         with none configured. Every name below is a real file in
         <span style="font-family:var(--mono);font-size:14px;color:var(--ink-2)">src/ScreenSaathi</span>.
       </p>
+      </div>
     </div>
 
     <div class="map rv" id="map">
@@ -1492,10 +1581,10 @@ function stream(node, holder, text, speed, done){
 
 /* PillLabels.kt English column; stage names are the architecture's own. */
 var BEATS = [
-  { at:0,    state:'ScreenSaathi', stage:'IDLE',     frame:0, st:IDLE_ST },
-  { at:1000, state:'Listening…',   stage:'PERCEIVE', frame:1, st:'#3D6BFF', user:'Help me book a taxi' },
-  { at:3400, state:'Thinking…',    stage:'REASON',   frame:1, st:'#7C5CFF' },
-  { at:4700, state:'Guiding you',  stage:'ACT',      frame:2, st:'#FF7A2F', say:'Here it is.', armed:true, src:true },
+  { at:0,    state:'ScreenSaathi', stage:'IDLE',     frame:0, st:IDLE_ST, mode:'idle' },
+  { at:1000, state:'Listening…',   stage:'PERCEIVE', frame:1, st:'#3D6BFF', mode:'listen', user:'Help me book a taxi' },
+  { at:3400, state:'Thinking…',    stage:'REASON',   frame:1, st:'#7C5CFF', mode:'think' },
+  { at:4700, state:'Guiding you',  stage:'ACT',      frame:2, st:'#FF7A2F', mode:'act', say:'Here it is.', armed:true, src:true },
   { at:7400, settle:true },
   { at:9900, reset:true }
 ];
@@ -1508,11 +1597,12 @@ function applyBeat(b){
     agSrc.classList.remove('in');
     focusEl.classList.remove('armed','settled');
     agent.classList.remove('live');
-    setState(IDLE_ST); frame(0);
+    setState(IDLE_ST); frame(0); agent.dataset.mode = 'idle';
     agState.textContent = 'ScreenSaathi'; agStage.textContent = 'IDLE';
     return;
   }
   if (b.settle){ focusEl.classList.add('settled'); agent.classList.remove('live'); return; }
+  if (b.mode)  agent.dataset.mode = b.mode;
   if (b.st)    setState(b.st);
   if (b.state) agState.textContent = b.state;
   if (b.stage) agStage.textContent = b.stage;
@@ -1540,10 +1630,11 @@ function cineStop(){ cine.on = false; if (cine.raf) cancelAnimationFrame(cine.ra
 /* Manual control wins permanently — nothing should move under someone
    who has just taken hold of it. */
 var CHIP_ST = ['#8A8FA8','#3D6BFF','#FF7A2F','#7C5CFF'];
+var CHIP_MODE = ['idle','listen','act','act'];
 function manualFrame(i){
   manual = true; cineStop();
   focusEl.classList.remove('armed','settled');
-  setState(CHIP_ST[i]); frame(i);
+  setState(CHIP_ST[i]); agent.dataset.mode = CHIP_MODE[i]; frame(i);
 }
 chips.forEach(function(c){
   c.addEventListener('click', function(){ manualFrame(+c.dataset.i); });
@@ -1557,13 +1648,13 @@ chips.forEach(function(c){
 });
 
 if (reduce){
-  setState('#FF7A2F'); frame(2);
+  setState('#FF7A2F'); frame(2); agent.dataset.mode = 'act';
   agState.textContent = 'Guiding you'; agStage.textContent = 'ACT';
   agUserT.textContent = 'Help me book a taxi'; agUser.classList.add('in');
   agSayT.textContent  = 'Here it is.';         agSay.classList.add('in');
   agSrc.classList.add('in');
 } else {
-  setState(IDLE_ST);
+  setState(IDLE_ST); agent.dataset.mode = 'idle';
   whileSeen($('#screen'), cineStart, cineStop, .3);
 }
 
